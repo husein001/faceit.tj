@@ -2,6 +2,16 @@
 
 const TOKEN_KEY = 'faceit_token';
 
+export function getApiUrl(): string {
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  }
+  // В браузере определяем API URL на основе текущего домена
+  const { protocol, hostname } = window.location;
+  // API работает на порту 3001, frontend на 3000
+  return `${protocol}//${hostname}:3001`;
+}
+
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem(TOKEN_KEY);
@@ -18,6 +28,5 @@ export function removeToken(): void {
 }
 
 export function getSteamLoginUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  return `${apiUrl}/api/auth/steam`;
+  return `${getApiUrl()}/api/auth/steam`;
 }

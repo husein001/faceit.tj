@@ -1,14 +1,13 @@
 'use client';
 
 import { io, Socket } from 'socket.io-client';
-
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
+import { getApiUrl } from './auth';
 
 let socket: Socket | null = null;
 
 export function getSocket(token?: string): Socket {
   if (!socket) {
-    socket = io(WS_URL, {
+    socket = io(getApiUrl(), {
       auth: { token },
       autoConnect: false,
       reconnection: true,

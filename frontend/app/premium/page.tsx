@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { premiumApi } from '@/lib/api';
+import { getSteamLoginUrl } from '@/lib/auth';
 import Header from '@/components/layout/Header';
 
 interface PremiumInfo {
@@ -188,7 +189,7 @@ export default function PremiumPage() {
             <div className="bg-gray-800 rounded-lg p-6 text-center">
               <p className="text-gray-300 mb-4">Для покупки подписки необходимо войти в систему</p>
               <a
-                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/steam`}
+                href={getSteamLoginUrl()}
                 className="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors"
               >
                 <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
