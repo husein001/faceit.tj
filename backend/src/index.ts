@@ -1,8 +1,10 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
-import dotenv from 'dotenv';
 
 import { testConnection } from './config/database';
 import { redis, testRedisConnection } from './config/redis';
@@ -17,8 +19,6 @@ import adminRoutes from './routes/admin';
 import { startMatchmakerWorker } from './workers/matchmaker.worker';
 import { startServerHealthWorker } from './workers/server-health.worker';
 import { startLobbyTimeoutWorker } from './workers/lobby-timeout.worker';
-
-dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
