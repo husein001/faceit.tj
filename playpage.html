@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>CS2 Matchmaking - Central Asia</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Theme Config -->
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00d9ff",
+                        "primary-hover": "#66e8ff",
+                        "danger": "#ef4444",
+                        "danger-hover": "#f87171",
+                        "background-dark": "#0f2124",
+                        "surface-dark": "#152a2e",
+                        "surface-glass": "rgba(21, 42, 46, 0.7)",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    boxShadow: {
+                        'neon': '0 0 20px rgba(0, 217, 255, 0.4), 0 0 10px rgba(0, 217, 255, 0.2)',
+                        'neon-strong': '0 0 30px rgba(0, 217, 255, 0.6), 0 0 15px rgba(0, 217, 255, 0.4)',
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f2124;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #20454b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00d9ff;
+        }
+
+        .glass-panel {
+            background: rgba(15, 33, 36, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .map-card-gradient {
+            background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.8) 100%);
+        }
+    </style>
+</head>
+<body class="bg-background-dark text-white font-display overflow-x-hidden min-h-screen flex flex-col">
+<!-- Background Ambience -->
+<div class="fixed inset-0 z-0 pointer-events-none">
+    <div class="absolute inset-0 bg-[url('https://placeholder.pics/svg/1920x1080/0f2124/162e33')] bg-cover bg-center opacity-20" data-alt="Abstract tactical map pattern dark background"></div>
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1200px] h-[500px] bg-primary/10 blur-[120px] rounded-full pointer-events-none"></div>
+</div>
+<!-- Navigation -->
+<header class="relative z-50 border-b border-[#20454b] glass-panel sticky top-0">
+    <div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <!-- Logo -->
+            <div class="size-8 text-primary">
+                <svg class="w-full h-full" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M24 4L6 14V34L24 44L42 34V14L24 4Z" stroke="currentColor" stroke-linejoin="round" stroke-width="4"></path>
+                    <path d="M24 14V34" stroke="currentColor" stroke-linecap="round" stroke-width="4"></path>
+                    <path d="M14 24H34" stroke="currentColor" stroke-linecap="round" stroke-width="4"></path>
+                </svg>
+            </div>
+            <h1 class="text-xl font-black tracking-tighter italic">CS2 CENTRAL ASIA</h1>
+        </div>
+        <!-- Nav Links -->
+        <nav class="hidden md:flex items-center gap-8">
+            <a class="text-white font-bold text-sm hover:text-primary transition-colors border-b-2 border-primary pb-0.5" href="#">PLAY</a>
+            <a class="text-gray-400 font-medium text-sm hover:text-white transition-colors" href="#">STATS</a>
+            <a class="text-gray-400 font-medium text-sm hover:text-white transition-colors" href="#">LEADERBOARD</a>
+            <a class="text-gray-400 font-medium text-sm hover:text-white transition-colors" href="#">TOURNAMENTS</a>
+            <a class="text-primary font-bold text-sm hover:text-primary-hover transition-colors flex items-center gap-1" href="#">
+                <span class="material-symbols-outlined text-[18px]">workspace_premium</span> PREMIUM
+            </a>
+        </nav>
+        <!-- User Actions -->
+        <div class="flex items-center gap-4">
+            <button class="size-10 rounded-lg bg-[#20454b] hover:bg-[#2b5a61] flex items-center justify-center transition-colors text-white">
+                <span class="material-symbols-outlined">notifications</span>
+            </button>
+            <button class="size-10 rounded-lg bg-[#20454b] hover:bg-[#2b5a61] flex items-center justify-center transition-colors text-white">
+                <span class="material-symbols-outlined">settings</span>
+            </button>
+            <div class="size-10 rounded-full bg-cover bg-center border-2 border-[#20454b]" data-alt="User avatar placeholder" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA_c4Z0YsUxsFBIX5el9M2shGWoaeEKAtT29smpQ1rwfXwOrrZ7M2VPE0pECImVqUl_rn1ThYHH8F7piPH9yPVpTrHLd__noDNgXFkbS2nsJbGlGZoLwpsII9jD8T_aqc0ELt6nEvGhqS4_8htKqgV06aHmkG5SMe2vJqSon8h0e32pR3GapKzQeNvxWg2I1J8VBf4Wj6Yh49g1YjCJA--D-UvcXZ_YPpbh2KSgTFEhMv2IdKi-_Twu8dAtWu3ZbpzVdcU5aPVuQS0l");'></div>
+        </div>
+    </div>
+</header>
+<!-- Main Content -->
+<main class="relative z-10 flex-1 flex flex-col items-center justify-start py-8 px-4 md:px-8 max-w-[1440px] mx-auto w-full gap-8">
+    <!-- Header & Server Selector -->
+    <div class="w-full flex flex-col md:flex-row md:items-end justify-between gap-6 pb-4 border-b border-white/5">
+        <div class="flex flex-col gap-2">
+            <h2 class="text-4xl md:text-5xl font-black tracking-[-0.03em] italic text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400">MATCHMAKING</h2>
+            <div class="flex items-center gap-2 text-[#8dc4ce] text-sm font-mono">
+                <span class="material-symbols-outlined text-base">dns</span>
+                <span>Region: Central Asia (Tajikistan/Uzbekistan)</span>
+                <span class="w-1 h-1 rounded-full bg-[#8dc4ce]"></span>
+                <span class="text-primary">Latency: 15ms</span>
+            </div>
+        </div>
+        <!-- Server Radio Toggle -->
+        <div class="flex bg-surface-dark p-1 rounded-xl border border-white/5">
+            <label class="cursor-pointer relative">
+                <input checked="" class="peer sr-only" name="server_region" type="radio"/>
+                <div class="px-5 py-2.5 rounded-lg text-sm font-bold text-gray-400 transition-all peer-checked:bg-[#20454b] peer-checked:text-white peer-checked:shadow-sm hover:text-white flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-primary opacity-0 peer-checked:opacity-100 transition-opacity"></span>
+                    Tajikistan
+                </div>
+            </label>
+            <label class="cursor-pointer relative">
+                <input class="peer sr-only" name="server_region" type="radio"/>
+                <div class="px-5 py-2.5 rounded-lg text-sm font-bold text-gray-400 transition-all peer-checked:bg-[#20454b] peer-checked:text-white peer-checked:shadow-sm hover:text-white flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-primary opacity-0 peer-checked:opacity-100 transition-opacity"></span>
+                    Uzbekistan
+                </div>
+            </label>
+        </div>
+    </div>
+    <!-- Main Action & Status Area -->
+    <div class="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <!-- Left Column: Map Pool -->
+        <div class="lg:col-span-8 flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">map</span>
+                    ACTIVE DUTY MAP POOL
+                </h3>
+                <span class="text-xs font-bold bg-[#20454b] px-2 py-1 rounded text-primary">PREMIER MODE</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <!-- Map Card: Dust 2 -->
+                <div class="group relative aspect-[3/4] md:aspect-[4/5] rounded-lg overflow-hidden cursor-pointer border border-transparent hover:border-primary transition-all">
+                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Dust 2 map environment dusty tones" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAZon14_Ipt_MyCsuYr04Evc3mHeuAyfQzOsa-VOWxd_VCpIwB6k9f6_m9VHjzbn6zixd8-bdNtYO7Omc00nN557abZI9HyfXz6-NsCompWlRf1vJTd172F5lHFMyHtLPCELotJG1T2ygQ2xhkwrsouavaH9qzENT41655WgfzR8orYbCkOa4AvNkTQxcVVRyDs4ja7Tgn_YD4UDBwB0s6F1icpqMDSUpHPir-WvnJ9GOJ13Jf69G4kD7utd-H4FkICZLU7nqFaKi3m");'></div>
+                    <div class="absolute inset-0 map-card-gradient flex flex-col justify-end p-3">
+                        <span class="font-bold text-white text-lg tracking-wide uppercase">Dust II</span>
+                    </div>
+                    <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div class="size-5 rounded-full bg-primary flex items-center justify-center">
+                            <span class="material-symbols-outlined text-black text-xs font-bold">check</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Map Card: Mirage -->
+                <div class="group relative aspect-[3/4] md:aspect-[4/5] rounded-lg overflow-hidden cursor-pointer border border-primary ring-1 ring-primary shadow-[0_0_15px_rgba(0,217,255,0.3)]">
+                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Mirage map environment desert palace" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDNHkh8BOVALCBT2HHhcZ_6Dw8_JOLc09h4cdNtBOER8dnClxHPpbFGVRl6bjfs1HvqRSK2-SKUetq7i44-KiHD7LrB5D-b21dtmvVh4WzTsZ7jUE384Z6qYJ6696wPXRDsl9vre4eLqurjLkpNcdgsskyQVdvCk1K2jjHOK5_R1gCLkzbsghawMIkWErdH19SqeIpmz7e3zx_u1itjh05WBXx7eIJYfHye9IAu0praMl1oVl2ii9ZJyKWYFRYFcj1At4anO9xrH49j");'></div>
+                    <div class="absolute inset-0 map-card-gradient flex flex-col justify-end p-3">
+                        <span class="font-bold text-white text-lg tracking-wide uppercase text-primary">Mirage</span>
+                    </div>
+                    <div class="absolute top-2 right-2">
+                        <div class="size-5 rounded-full bg-primary flex items-center justify-center">
+                            <span class="material-symbols-outlined text-black text-xs font-bold">check</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Map Card: Inferno -->
+                <div class="group relative aspect-[3/4] md:aspect-[4/5] rounded-lg overflow-hidden cursor-pointer border border-transparent hover:border-primary transition-all">
+                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Inferno map environment italian streets" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAfn6-pPQ_m8lERKb_vJmg65wjMv39WWWkKjM1y3xBrOapyTXSUEqRK2NEbBpTEDnNpALhuCQBNTOLIMrNyMV1bBoqqu1d52Gf2QJGuAFsOwUs4XwMZssa_jYCMf80p5fh9TOLkBodSajpdSqgokkUVyuuYxht9FdBr76BbWRzJmxYKIhaB5wFgk20ZpPzXGDtZKrOTfk9OHv8Mw7LgaFVsb4X9L4tq9quVTB4gDlUprHkGdEyvns18yiW1na54JCYl4gEANjIeY4fn");'></div>
+                    <div class="absolute inset-0 map-card-gradient flex flex-col justify-end p-3">
+                        <span class="font-bold text-white text-lg tracking-wide uppercase">Inferno</span>
+                    </div>
+                </div>
+                <!-- Map Card: Nuke -->
+                <div class="group relative aspect-[3/4] md:aspect-[4/5] rounded-lg overflow-hidden cursor-pointer border border-transparent hover:border-primary transition-all">
+                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Nuke map environment industrial facility" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBNSu_HWXwDQe7jrthen62Z6W6AuhpfoNmD_3rLmmuuENeqkzWOHv1NEXKSkgwClDZes4yl_erXgSSKwPmkwO0GBuPz3aTGO8vCzku881xl28-qzsMI_zQvcIMGgKMfyh9PL55v0H-rknBe_D-VeWrC996E1QPQ125VbtaA4pIA4hz_n4bpwtzj9P4NQ2j2Mz8kgJqrrZRigLLupx8add9g4jX2W3dRopgt4WNkwVZ9nfgK-sFoU9TkpCINgbZwblIcxOil2T9gNK0Y");'></div>
+                    <div class="absolute inset-0 map-card-gradient flex flex-col justify-end p-3">
+                        <span class="font-bold text-white text-lg tracking-wide uppercase">Nuke</span>
+                    </div>
+                </div>
+                <!-- Map Card: Overpass -->
+                <div class="group relative aspect-[3/4] md:aspect-[4/5] rounded-lg overflow-hidden cursor-pointer border border-transparent hover:border-primary transition-all">
+                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Overpass map environment park and canal" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuASgFx8vNDNJSVWxKLDI2oPbs8aFPTNv7u2ARETBKvK36CpOovT3NBlcHniuChYHqzban_Nj3V4MWsOSs-85Ik3lTjjkB2_KTEtkDJ36xcWFeqlwidp9uV_DKrEUIbB6UfpjC1uruLRmq8mzTzAfMM9cVN964uy7rCt3Aj3UpZ26RmMdniYdzQMHCVGX6Gek1MM8JFM7EXsGVc60ZH1Vvwfq04b80fJ5ZcfwVgc7uzXJnlL1X-WXN7TJxNT6V-reMJls0FKo_f-hPs0");'></div>
+                    <div class="absolute inset-0 map-card-gradient flex flex-col justify-end p-3">
+                        <span class="font-bold text-white text-lg tracking-wide uppercase">Overpass</span>
+                    </div>
+                </div>
+                <!-- Map Card: Vertigo -->
+                <div class="group relative aspect-[3/4] md:aspect-[4/5] rounded-lg overflow-hidden cursor-pointer border border-transparent hover:border-primary transition-all">
+                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Vertigo map environment skyscraper under construction" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD14wKLXB045cqs4g6Cia_HOopbnJLb9sQ-QzX9e2R7TmkKIU9os4mo3PrhUe009zkeS2ZsQNUq6QXQex-jIN6Y8weLNJGIWlYW9LksyooHWt_EkAZcuPQsHIqUl8DqQhNKTOPMBol1TYZrtDlhe2u1M5SVCKuE-5bHYJcbHTD_UJNIeAfFPruAQEysLOd7S3Tq_FDahFb_1X7vkwyzfaHSAYkiiRVh7TMpIdOxO0sYqxaD_oyXFSxDX5waWCNqMdBcBxGJSfFicmLX");'></div>
+                    <div class="absolute inset-0 map-card-gradient flex flex-col justify-end p-3">
+                        <span class="font-bold text-white text-lg tracking-wide uppercase">Vertigo</span>
+                    </div>
+                </div>
+                <!-- Map Card: Ancient -->
+                <div class="group relative aspect-[3/4] md:aspect-[4/5] rounded-lg overflow-hidden cursor-pointer border border-transparent hover:border-primary transition-all">
+                    <div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Ancient map environment jungle ruins" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBKCEMX17yJUbHacRm7ybxzdwd4h6qIs98DB5i5VDjjyqMePzua_7lxefYWPT3yyF3spmy55JjAFLoi9H90NDsWO5T44BhnM5s5rt8Hx9IkI6R1Nubo51HgLAXEfeibInYgn38oKWiDWl9GzT4sjSFVYNk_G9js3HKNkaqOcaT2dXBsXDh5sDAF5DB5m0b19TolgAf9Ck9mKoUNgdaJTfP6WqEZ9L98Mne3cOZ6bmVTuaG7dQWU0YBMRVcHSv6vvVm3M689EE2skei2");'></div>
+                    <div class="absolute inset-0 map-card-gradient flex flex-col justify-end p-3">
+                        <span class="font-bold text-white text-lg tracking-wide uppercase">Ancient</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Right Column: Queue & Actions -->
+        <div class="lg:col-span-4 flex flex-col gap-6 sticky top-24">
+            <!-- Main CTA Button -->
+            <div class="flex justify-center w-full">
+                <button class="group relative w-full overflow-hidden rounded-xl bg-primary hover:bg-primary-hover text-[#0f2124] transition-all duration-300 shadow-neon hover:shadow-neon-strong transform hover:-translate-y-1">
+                    <div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                    <div class="relative py-6 px-8 flex items-center justify-center gap-3">
+                        <span class="material-symbols-outlined text-4xl font-black">play_arrow</span>
+                        <span class="text-2xl font-black italic tracking-tighter uppercase">НАЙТИ ИГРУ 5V5</span>
+                    </div>
+                    <div class="h-1 w-full bg-[#0f2124]/20 mt-[-4px]"></div>
+                </button>
+            </div>
+            <!-- Queue Status Card (Active State) -->
+            <div class="glass-panel rounded-xl overflow-hidden shadow-lg animate-fade-in border-t-2 border-primary">
+                <div class="bg-[#152a2e]/80 p-5 flex flex-col gap-4">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h4 class="text-primary font-bold text-lg leading-tight flex items-center gap-2">
+<span class="relative flex h-3 w-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+</span>
+                                SEARCHING...
+                            </h4>
+                            <p class="text-gray-400 text-sm mt-1">Mode: Premier 5v5</p>
+                        </div>
+                        <div class="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 my-2">
+                        <div class="bg-[#0f2124] rounded-lg p-3 text-center border border-white/5">
+                            <p class="text-xs text-gray-500 font-bold uppercase">Players in Queue</p>
+                            <p class="text-xl font-mono font-bold text-white">124</p>
+                        </div>
+                        <div class="bg-[#0f2124] rounded-lg p-3 text-center border border-white/5">
+                            <p class="text-xs text-gray-500 font-bold uppercase">Est. Time</p>
+                            <p class="text-xl font-mono font-bold text-white">~2:30</p>
+                        </div>
+                    </div>
+                    <!-- Cancel Button (Only visible in queue) -->
+                    <button class="w-full py-3 rounded-lg bg-danger/10 text-danger hover:bg-danger hover:text-white border border-danger/20 hover:border-danger transition-all font-bold text-sm tracking-wide uppercase flex items-center justify-center gap-2 group">
+                        <span class="material-symbols-outlined text-[18px] group-hover:rotate-90 transition-transform">close</span>
+                        CANCEL SEARCH
+                    </button>
+                </div>
+            </div>
+            <!-- Lobby Info / Friends -->
+            <div class="bg-surface-dark/50 rounded-xl border border-white/5 p-4 flex flex-col gap-3">
+                <h5 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Lobby (1/5)</h5>
+                <div class="flex items-center gap-3 p-2 rounded-lg bg-[#0f2124] hover:bg-white/5 cursor-pointer transition-colors border border-transparent hover:border-white/10">
+                    <div class="relative">
+                        <div class="size-10 rounded bg-cover bg-center" data-alt="User avatar small" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDtZ-Ro-1SqsrkI7fabYS1N2qZskTjbJ4_bliwiGHer6VNBr8OVSsr3k8gaQhRNh4TGVAvhasB17H21w-vn5agIvN2UF1TjwN_TwTEi_AA_FXGtfCKHSz_kfk3B292nykputNxN51Ev32alzIypTz0dPN_EjI4EaQL6Nb2v51b-XNkDYWS1RNuVADh-YOXNWeq5Wf7KbUhkOU_6pWime4dDWwIBfXCmbNVcVpKXJ2C85X9sFs41j_9uD8JCnOcxUeDsQ_JtRihA9BQS");'></div>
+                        <div class="absolute -bottom-1 -right-1 bg-green-500 size-3 rounded-full border-2 border-[#0f2124]"></div>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-bold text-white leading-none mb-1">SniperElite</p>
+                        <p class="text-[10px] text-gray-400 font-mono">Rank: Global Elite</p>
+                    </div>
+                    <span class="material-symbols-outlined text-gray-500 text-sm">mic</span>
+                </div>
+                <button class="w-full py-2 border border-dashed border-gray-600 text-gray-500 rounded-lg text-xs font-bold hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-base">add</span>
+                    INVITE FRIENDS
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+</body></html>
