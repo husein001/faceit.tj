@@ -1,5 +1,27 @@
 import dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
+import fs from 'fs';
+
+// Ищем .env в нескольких местах
+const envPaths = [
+  path.resolve(process.cwd(), '.env'),           // текущая папка
+  path.resolve(process.cwd(), '../.env'),        // родительская папка
+  path.resolve(__dirname, '../.env'),            // относительно src/
+  path.resolve(__dirname, '../../.env'),         // относительно src/ (корень проекта)
+];
+
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    console.log('Loading .env from:', envPath);
+    dotenv.config({ path: envPath });
+    break;
+  }
+}
+
+console.log('ENV check:', {
+  API_URL: process.env.API_URL,
+  FRONTEND_URL: process.env.FRONTEND_URL,
+});
 
 import express from 'express';
 import cors from 'cors';
