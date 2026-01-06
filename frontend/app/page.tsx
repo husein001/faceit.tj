@@ -4,13 +4,38 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { getSteamLoginUrl } from '@/lib/auth';
+import { statsApi } from '@/lib/api';
+
+interface Stats {
+  onlinePlayers: number;
+  matchesToday: number;
+  totalPlayers: number;
+  playersWithMatches: number;
+}
 
 export default function HomePage() {
   const { isAuthenticated } = useAuth();
   const [steamLoginUrl, setSteamLoginUrl] = useState('#');
+  const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
     setSteamLoginUrl(getSteamLoginUrl());
+
+    // Загрузка статистики
+    const fetchStats = async () => {
+      try {
+        const data = await statsApi.get();
+        setStats(data);
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      }
+    };
+
+    fetchStats();
+
+    // Обновление статистики каждые 30 секунд
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -74,23 +99,30 @@ export default function HomePage() {
       {/* Stats Section */}
       <section className="relative z-30 -mt-20 pb-20 px-4">
         <div className="container mx-auto max-w-5xl">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 glass-panel rounded-2xl p-6 md:p-8 shadow-2xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 glass-panel rounded-2xl p-6 md:p-8 shadow-2xl">
             <div className="flex flex-col items-center justify-center gap-1 border-b md:border-b-0 md:border-r border-white/10 pb-4 md:pb-0 md:pr-4">
               <div className="text-gray-400 text-sm font-medium uppercase tracking-wider">Игроков онлайн</div>
               <div className="text-4xl font-black text-white flex items-center gap-2">
-                --<span className="text-primary text-2xl">+</span>
+                {stats ? stats.onlinePlayers : '--'}
+                {stats && stats.onlinePlayers > 0 && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
               </div>
             </div>
             <div className="flex flex-col items-center justify-center gap-1 border-b md:border-b-0 md:border-r border-white/10 pb-4 md:pb-0 md:px-4">
               <div className="text-gray-400 text-sm font-medium uppercase tracking-wider">Матчей сегодня</div>
-              <div className="text-4xl font-black text-white flex items-center gap-2">
-                --<span className="text-primary text-2xl">+</span>
+              <div className="text-4xl font-black text-white">
+                {stats ? stats.matchesToday : '--'}
+              </div>
+            </div>
+            <div className="flex flex-col items-center justify-center gap-1 border-b md:border-b-0 md:border-r border-white/10 pb-4 md:pb-0 md:px-4">
+              <div className="text-gray-400 text-sm font-medium uppercase tracking-wider">Сыграли матчи</div>
+              <div className="text-4xl font-black text-white">
+                {stats ? stats.playersWithMatches : '--'}
               </div>
             </div>
             <div className="flex flex-col items-center justify-center gap-1 pt-4 md:pt-0 md:pl-4">
               <div className="text-gray-400 text-sm font-medium uppercase tracking-wider">Всего игроков</div>
-              <div className="text-4xl font-black text-white flex items-center gap-2">
-                --<span className="text-primary text-2xl">+</span>
+              <div className="text-4xl font-black text-white">
+                {stats ? stats.totalPlayers : '--'}
               </div>
             </div>
           </div>

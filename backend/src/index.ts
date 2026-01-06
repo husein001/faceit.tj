@@ -46,6 +46,7 @@ import matchesRoutes from './routes/matches';
 import webhookRoutes from './routes/webhook';
 import premiumRoutes from './routes/premium';
 import adminRoutes from './routes/admin';
+import statsRoutes from './routes/stats';
 import { startMatchmakerWorker } from './workers/matchmaker.worker';
 import { startServerHealthWorker } from './workers/server-health.worker';
 import { startLobbyTimeoutWorker } from './workers/lobby-timeout.worker';
@@ -82,6 +83,7 @@ app.use('/api/matches', matchesRoutes);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/premium', premiumRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Initialize Socket.io handlers
 initSocketHandlers(io);

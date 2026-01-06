@@ -76,6 +76,16 @@ export const premiumApi = {
     request<any>('/api/premium/request', { method: 'POST', token, body: { phoneNumber } }),
 };
 
+// Stats API (public)
+export const statsApi = {
+  get: () => request<{
+    onlinePlayers: number;
+    matchesToday: number;
+    totalPlayers: number;
+    playersWithMatches: number;
+  }>('/api/stats'),
+};
+
 // Admin API
 export const adminApi = {
   login: (login: string, password: string) =>
