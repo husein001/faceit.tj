@@ -6,68 +6,95 @@ import { generateToken, authMiddleware, AuthRequest } from '../middleware/auth.m
 
 const router = Router();
 
-// Configure Passport Steam Strategy
-passport.use(new SteamStrategy({
-  returnURL: `${process.env.API_URL}/api/auth/steam/callback`,
-  realm: process.env.API_URL || 'http://localhost:3001',
-  apiKey: process.env.STEAM_API_KEY || '',
-}, async (identifier: string, profile: any, done: Function) => {
-  try {
-    const steamId = profile.id;
-    const username = profile.displayName;
-    const avatarUrl = profile.photos?.[2]?.value || profile.photos?.[0]?.value || null;
+// Флаг для ленивой инициализации
+let steamStrategyInitialized = false;
 
-    // Find or create user
-    let user = await findUserBySteamId(steamId);
+// Инициализация Steam Strategy ЛЕНИВО (после загрузки .env)
+function initSteamStrategy() {
+  if (steamStrategyInitialized) return;
 
-    if (!user) {
-      user = await createUser(steamId, username, avatarUrl);
+  const apiUrl = process.env.API_URL || 'http://localhost:3001';
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+  console.log('Initializing Steam Strategy with:', { apiUrl, frontendUrl });
+
+  passport.use(new SteamStrategy({
+    returnURL: `${apiUrl}/api/auth/steam/callback`,
+    realm: apiUrl,
+    apiKey: process.env.STEAM_API_KEY || '',
+  }, async (identifier: string, profile: any, done: Function) => {
+    try {
+      const steamId = profile.id;
+      const username = profile.displayName;
+      const avatarUrl = profile.photos?.[2]?.value || profile.photos?.[0]?.value || null;
+
+      // Find or create user
+      let user = await findUserBySteamId(steamId);
+
+      if (!user) {
+        user = await createUser(steamId, username, avatarUrl);
+      }
+
+      done(null, user);
+    } catch (error) {
+      done(error);
     }
+  }));
 
-    done(null, user);
-  } catch (error) {
-    done(error);
-  }
-}));
+  passport.serializeUser((user: any, done) => {
+    done(null, user.id);
+  });
 
-passport.serializeUser((user: any, done) => {
-  done(null, user.id);
-});
+  passport.deserializeUser(async (id: string, done) => {
+    try {
+      const { findUserById } = await import('../models/user.model');
+      const user = await findUserById(id);
+      done(null, user);
+    } catch (error) {
+      done(error);
+    }
+  });
 
-passport.deserializeUser(async (id: string, done) => {
-  try {
-    const { findUserById } = await import('../models/user.model');
-    const user = await findUserById(id);
-    done(null, user);
-  } catch (error) {
-    done(error);
-  }
-});
+  steamStrategyInitialized = true;
+}
 
 // Initialize Passport
 router.use(passport.initialize());
 
-// Steam Auth Redirect
-router.get('/steam', passport.authenticate('steam'));
+// Steam Auth Redirect - инициализируем стратегию при первом запросе
+router.get('/steam', (req, res, next) => {
+  initSteamStrategy();
+  passport.authenticate('steam')(req, res, next);
+});
 
-// Steam Auth Callback
-router.get('/steam/callback',
-  passport.authenticate('steam', { session: false, failureRedirect: `${process.env.FRONTEND_URL}/auth/error` }),
-  (req: Request, res: Response) => {
+// Steam Auth Callback - тоже инициализируем стратегию
+router.get('/steam/callback', (req: Request, res: Response, next) => {
+  initSteamStrategy();
+
+  passport.authenticate('steam', {
+    session: false,
+    failureRedirect: `${process.env.FRONTEND_URL}/auth/error`
+  })(req, res, (err: any) => {
+    if (err) {
+      console.error('Steam auth error:', err);
+      return res.redirect(`${process.env.FRONTEND_URL}/auth/error`);
+    }
+
     const user = req.user as any;
 
     if (!user) {
-      res.redirect(`${process.env.FRONTEND_URL}/auth/error`);
-      return;
+      return res.redirect(`${process.env.FRONTEND_URL}/auth/error`);
     }
 
     // Generate JWT token
     const token = generateToken(user.id, user.steam_id);
 
     // Redirect to frontend with token
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
-  }
-);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    console.log('Redirecting to:', `${frontendUrl}/auth/callback?token=${token}`);
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+  });
+});
 
 // Logout
 router.post('/logout', authMiddleware, (req: AuthRequest, res: Response) => {

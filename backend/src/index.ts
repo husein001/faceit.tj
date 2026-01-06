@@ -1,3 +1,4 @@
+// ВАЖНО: dotenv должен загрузиться ДО любых импортов, использующих process.env
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -10,12 +11,18 @@ const envPaths = [
   path.resolve(__dirname, '../../.env'),         // относительно src/ (корень проекта)
 ];
 
+let envLoaded = false;
 for (const envPath of envPaths) {
   if (fs.existsSync(envPath)) {
     console.log('Loading .env from:', envPath);
     dotenv.config({ path: envPath });
+    envLoaded = true;
     break;
   }
+}
+
+if (!envLoaded) {
+  console.warn('WARNING: No .env file found!');
 }
 
 console.log('ENV check:', {
@@ -23,24 +30,11 @@ console.log('ENV check:', {
   FRONTEND_URL: process.env.FRONTEND_URL,
 });
 
+// Теперь безопасно импортировать остальные модули
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
-
-import { testConnection } from './config/database';
-import { redis, testRedisConnection } from './config/redis';
-import { initSocketHandlers } from './socket';
-import authRoutes from './routes/auth';
-import matchmakingRoutes from './routes/matchmaking';
-import lobbyRoutes from './routes/lobby';
-import matchesRoutes from './routes/matches';
-import webhookRoutes from './routes/webhook';
-import premiumRoutes from './routes/premium';
-import adminRoutes from './routes/admin';
-import { startMatchmakerWorker } from './workers/matchmaker.worker';
-import { startServerHealthWorker } from './workers/server-health.worker';
-import { startLobbyTimeoutWorker } from './workers/lobby-timeout.worker';
 
 const app = express();
 const httpServer = createServer(app);
