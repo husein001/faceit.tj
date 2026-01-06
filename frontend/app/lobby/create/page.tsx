@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { lobbyApi } from '@/lib/api';
@@ -22,6 +22,11 @@ export default function CreateLobbyPage() {
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [steamLoginUrl, setSteamLoginUrl] = useState('#');
+
+  useEffect(() => {
+    setSteamLoginUrl(getSteamLoginUrl());
+  }, []);
 
   const handleCreateLobby = async () => {
     if (!token || !selectedMap) return;
@@ -46,7 +51,7 @@ export default function CreateLobbyPage() {
           <h1 className="text-2xl font-bold text-white mb-4">Требуется авторизация</h1>
           <p className="text-gray-400 mb-6">Войдите через Steam, чтобы создать лобби</p>
           <a
-            href={getSteamLoginUrl()}
+            href={steamLoginUrl}
             className="inline-flex items-center justify-center gap-2 w-full py-4 bg-primary text-background-dark font-black uppercase rounded-lg shadow-neon hover:shadow-neon-hover transition-all"
           >
             <span className="material-symbols-outlined">login</span>

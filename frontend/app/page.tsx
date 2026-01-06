@@ -1,11 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { getSteamLoginUrl } from '@/lib/auth';
 
 export default function HomePage() {
   const { isAuthenticated } = useAuth();
+  const [steamLoginUrl, setSteamLoginUrl] = useState('#');
+
+  useEffect(() => {
+    setSteamLoginUrl(getSteamLoginUrl());
+  }, []);
 
   return (
     <div className="relative">
@@ -54,7 +60,7 @@ export default function HomePage() {
               </Link>
             ) : (
               <a
-                href={getSteamLoginUrl()}
+                href={steamLoginUrl}
                 className="group relative flex items-center justify-center gap-3 px-8 py-4 bg-primary text-background-dark text-lg font-black uppercase tracking-wider rounded-lg shadow-neon hover:shadow-neon-hover transform hover:-translate-y-1 transition-all duration-300 w-full sm:w-auto overflow-hidden"
               >
                 <span className="material-symbols-outlined font-bold">login</span>

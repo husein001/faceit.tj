@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { premiumApi } from '@/lib/api';
@@ -36,6 +36,11 @@ export default function PremiumPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [steamLoginUrl, setSteamLoginUrl] = useState('#');
+
+  useEffect(() => {
+    setSteamLoginUrl(getSteamLoginUrl());
+  }, []);
 
   useEffect(() => {
     loadPremiumInfo();
@@ -189,7 +194,7 @@ export default function PremiumPage() {
             <div className="bg-gray-800 rounded-lg p-6 text-center">
               <p className="text-gray-300 mb-4">Для покупки подписки необходимо войти в систему</p>
               <a
-                href={getSteamLoginUrl()}
+                href={steamLoginUrl}
                 className="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg transition-colors"
               >
                 <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">

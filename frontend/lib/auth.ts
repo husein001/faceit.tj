@@ -4,7 +4,8 @@ const TOKEN_KEY = 'faceit_token';
 
 export function getApiUrl(): string {
   if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    // SSR: используем env переменную или пустую строку (для относительных путей)
+    return process.env.NEXT_PUBLIC_API_URL || '';
   }
   // В браузере определяем API URL на основе текущего домена
   const { protocol, hostname } = window.location;
@@ -28,5 +29,9 @@ export function removeToken(): void {
 }
 
 export function getSteamLoginUrl(): string {
+  // На сервере возвращаем placeholder, который будет заменён на клиенте
+  if (typeof window === 'undefined') {
+    return '#';
+  }
   return `${getApiUrl()}/api/auth/steam`;
 }

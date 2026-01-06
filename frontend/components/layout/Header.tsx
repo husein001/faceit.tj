@@ -1,16 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { getSteamLoginUrl } from '@/lib/auth';
 
 export default function Header() {
   const { user, isAuthenticated, isLoading, fetchUser, logout } = useAuth();
+  const [steamLoginUrl, setSteamLoginUrl] = useState('#');
 
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
+
+  // Устанавливаем URL для Steam только на клиенте
+  useEffect(() => {
+    setSteamLoginUrl(getSteamLoginUrl());
+  }, []);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-panel border-b border-primary/10">
@@ -71,7 +77,7 @@ export default function Header() {
               </div>
             ) : (
               <a
-                href={getSteamLoginUrl()}
+                href={steamLoginUrl}
                 className="hidden sm:flex h-9 px-4 items-center justify-center rounded bg-primary/10 text-primary text-sm font-bold border border-primary/20 hover:bg-primary hover:text-background-dark transition-all duration-300"
               >
                 <span className="material-symbols-outlined text-lg mr-2">login</span>

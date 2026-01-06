@@ -18,6 +18,11 @@ export default function ProfilePage() {
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const [matchHistory, setMatchHistory] = useState<MatchHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [steamLoginUrl, setSteamLoginUrl] = useState('#');
+
+  useEffect(() => {
+    setSteamLoginUrl(getSteamLoginUrl());
+  }, []);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -52,7 +57,7 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-bold text-white mb-4">Требуется авторизация</h1>
           <p className="text-gray-400 mb-6">Войдите через Steam для просмотра профиля</p>
           <a
-            href={getSteamLoginUrl()}
+            href={steamLoginUrl}
             className="inline-flex items-center justify-center gap-2 w-full py-4 bg-primary text-background-dark font-black uppercase rounded-lg shadow-neon hover:shadow-neon-hover transition-all"
           >
             <span className="material-symbols-outlined">login</span>

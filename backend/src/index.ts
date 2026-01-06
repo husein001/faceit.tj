@@ -36,6 +36,20 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
 
+import { testConnection } from './config/database';
+import { redis, testRedisConnection } from './config/redis';
+import { initSocketHandlers } from './socket';
+import authRoutes from './routes/auth';
+import matchmakingRoutes from './routes/matchmaking';
+import lobbyRoutes from './routes/lobby';
+import matchesRoutes from './routes/matches';
+import webhookRoutes from './routes/webhook';
+import premiumRoutes from './routes/premium';
+import adminRoutes from './routes/admin';
+import { startMatchmakerWorker } from './workers/matchmaker.worker';
+import { startServerHealthWorker } from './workers/server-health.worker';
+import { startLobbyTimeoutWorker } from './workers/lobby-timeout.worker';
+
 const app = express();
 const httpServer = createServer(app);
 

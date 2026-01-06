@@ -35,6 +35,12 @@ export default function PlayPage() {
   } = useMatchmaking();
 
   const [searchTime, setSearchTime] = useState(0);
+  const [steamLoginUrl, setSteamLoginUrl] = useState('#');
+
+  // Устанавливаем Steam URL только на клиенте
+  useEffect(() => {
+    setSteamLoginUrl(getSteamLoginUrl());
+  }, []);
 
   // Listen for socket events
   useEffect(() => {
@@ -219,7 +225,7 @@ export default function PlayPage() {
                 <h3 className="text-xl font-bold mb-2">Требуется авторизация</h3>
                 <p className="text-gray-400 mb-6">Войдите через Steam для поиска матча</p>
                 <a
-                  href={getSteamLoginUrl()}
+                  href={steamLoginUrl}
                   className="inline-flex items-center justify-center gap-2 w-full py-4 bg-primary text-background-dark font-black uppercase rounded-lg shadow-neon hover:shadow-neon-hover transition-all"
                 >
                   <span className="material-symbols-outlined">login</span>
