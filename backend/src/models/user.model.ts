@@ -1,5 +1,6 @@
 import { query, queryOne } from '../config/database';
 import { User } from '../types';
+import { getInitialMMR } from '../services/faceit.service';
 
 export async function findUserBySteamId(steamId: string): Promise<User | null> {
   return queryOne<User>(
@@ -16,11 +17,15 @@ export async function findUserById(id: string): Promise<User | null> {
 }
 
 export async function createUser(steamId: string, username: string, avatarUrl: string | null): Promise<User> {
+  // Fetch initial MMR from Faceit (or default 1000)
+  const initialMMR = await getInitialMMR(steamId);
+  console.log(`Creating user ${username} with initial MMR: ${initialMMR}`);
+
   const rows = await query<User>(
-    `INSERT INTO users (steam_id, username, avatar_url)
-     VALUES ($1, $2, $3)
+    `INSERT INTO users (steam_id, username, avatar_url, mmr)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [steamId, username, avatarUrl]
+    [steamId, username, avatarUrl, initialMMR]
   );
   return rows[0];
 }
