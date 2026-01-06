@@ -13,7 +13,6 @@ const MAPS = [
   { id: 'de_inferno', name: 'Inferno', image: '/maps/inferno.jpg' },
   { id: 'de_nuke', name: 'Nuke', image: '/maps/nuke.jpg' },
   { id: 'de_overpass', name: 'Overpass', image: '/maps/overpass.jpg' },
-  { id: 'de_vertigo', name: 'Vertigo', image: '/maps/vertigo.jpg' },
   { id: 'de_ancient', name: 'Ancient', image: '/maps/ancient.jpg' },
 ];
 

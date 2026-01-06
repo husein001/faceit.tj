@@ -12,7 +12,6 @@ const MAPS = [
   { id: 'de_inferno', name: 'Inferno' },
   { id: 'de_nuke', name: 'Nuke' },
   { id: 'de_overpass', name: 'Overpass' },
-  { id: 'de_vertigo', name: 'Vertigo' },
   { id: 'de_ancient', name: 'Ancient' },
 ];
 
