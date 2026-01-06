@@ -7,10 +7,8 @@ export function getApiUrl(): string {
     // SSR: используем env переменную или пустую строку (для относительных путей)
     return process.env.NEXT_PUBLIC_API_URL || '';
   }
-  // В браузере определяем API URL на основе текущего домена
-  const { protocol, hostname } = window.location;
-  // API работает на порту 3001, frontend на 3000
-  return `${protocol}//${hostname}:3001`;
+  // В браузере используем тот же origin (nginx проксирует /api на backend)
+  return window.location.origin;
 }
 
 export function getToken(): string | null {
