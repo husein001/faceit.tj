@@ -8,12 +8,12 @@ import { useMatchmaking } from '@/hooks/useMatchmaking';
 import { getSteamLoginUrl } from '@/lib/auth';
 
 const MAPS = [
-  { id: 'de_dust2', name: 'Dust II', image: '/maps/dust2.jpg' },
-  { id: 'de_mirage', name: 'Mirage', image: '/maps/mirage.jpg' },
-  { id: 'de_inferno', name: 'Inferno', image: '/maps/inferno.jpg' },
-  { id: 'de_nuke', name: 'Nuke', image: '/maps/nuke.jpg' },
-  { id: 'de_overpass', name: 'Overpass', image: '/maps/overpass.jpg' },
-  { id: 'de_ancient', name: 'Ancient', image: '/maps/ancient.jpg' },
+  { id: 'de_dust2', name: 'Dust II', image: '/maps/dust2.jpeg' },
+  { id: 'de_mirage', name: 'Mirage', image: '/maps/mirage.jpeg' },
+  { id: 'de_inferno', name: 'Inferno', image: '/maps/inferno.jpeg' },
+  { id: 'de_nuke', name: 'Nuke', image: '/maps/nuke.jpeg' },
+  { id: 'de_overpass', name: 'Overpass', image: '/maps/overpass.jpeg' },
+  { id: 'de_ancient', name: 'Ancient', image: '/maps/ancient.jpeg' },
 ];
 
 export default function PlayPage() {
@@ -203,9 +203,10 @@ export default function PlayPage() {
                   className="group relative aspect-[3/4] md:aspect-[4/5] rounded-lg overflow-hidden border border-white/10 hover:border-primary/50 transition-all"
                 >
                   <div
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110 bg-gradient-to-br from-background-secondary to-background-dark"
+                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                    style={{ backgroundImage: `url(${map.image})` }}
                   />
-                  <div className="absolute inset-0 map-card-gradient flex flex-col justify-end p-3">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-3">
                     <span className="font-bold text-white text-lg tracking-wide uppercase">
                       {map.name}
                     </span>

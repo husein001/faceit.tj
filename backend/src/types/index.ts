@@ -120,7 +120,6 @@ export const MAP_POOL = [
   'de_inferno',
   'de_nuke',
   'de_overpass',
-  'de_vertigo',
   'de_ancient'
 ] as const;
 

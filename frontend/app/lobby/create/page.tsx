@@ -7,12 +7,12 @@ import { lobbyApi } from '@/lib/api';
 import { getSteamLoginUrl } from '@/lib/auth';
 
 const MAPS = [
-  { id: 'de_dust2', name: 'Dust II' },
-  { id: 'de_mirage', name: 'Mirage' },
-  { id: 'de_inferno', name: 'Inferno' },
-  { id: 'de_nuke', name: 'Nuke' },
-  { id: 'de_overpass', name: 'Overpass' },
-  { id: 'de_ancient', name: 'Ancient' },
+  { id: 'de_dust2', name: 'Dust II', image: '/maps/dust2.jpeg' },
+  { id: 'de_mirage', name: 'Mirage', image: '/maps/mirage.jpeg' },
+  { id: 'de_inferno', name: 'Inferno', image: '/maps/inferno.jpeg' },
+  { id: 'de_nuke', name: 'Nuke', image: '/maps/nuke.jpeg' },
+  { id: 'de_overpass', name: 'Overpass', image: '/maps/overpass.jpeg' },
+  { id: 'de_ancient', name: 'Ancient', image: '/maps/ancient.jpeg' },
 ];
 
 export default function CreateLobbyPage() {
@@ -114,8 +114,11 @@ export default function CreateLobbyPage() {
                     : 'border-white/10 hover:border-primary/50'
                 }`}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-background-secondary to-background-dark" />
-                <div className="absolute inset-0 map-card-gradient flex items-end p-3">
+                <div
+                  className="absolute inset-0 bg-cover bg-center"
+                  style={{ backgroundImage: `url(${map.image})` }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end p-3">
                   <span className="font-bold text-white uppercase">{map.name}</span>
                 </div>
                 {selectedMap === map.id && (

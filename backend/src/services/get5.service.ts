@@ -60,7 +60,6 @@ export function getMapDisplayName(mapName: MapName): string {
     de_inferno: 'Inferno',
     de_nuke: 'Nuke',
     de_overpass: 'Overpass',
-    de_vertigo: 'Vertigo',
     de_ancient: 'Ancient',
   };
   return displayNames[mapName];
@@ -74,7 +73,6 @@ export function getMapImage(mapName: MapName): string {
     de_inferno: '/maps/inferno.jpg',
     de_nuke: '/maps/nuke.jpg',
     de_overpass: '/maps/overpass.jpg',
-    de_vertigo: '/maps/vertigo.jpg',
     de_ancient: '/maps/ancient.jpg',
   };
   return mapImages[mapName];
