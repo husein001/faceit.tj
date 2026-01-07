@@ -86,8 +86,25 @@ router.post('/create', authMiddleware, premiumMiddleware, async (req: AuthReques
     // Update user's active lobby
     await setUserActiveLobby(userId, match.id);
 
-    // Сразу формируем connect command
-    const connectCommand = `connect ${server.ip}:${server.port}`;
+    // Генерируем пароль для сервера (только участники лобби могут зайти)
+    const serverPassword = lobbyCode.toLowerCase();
+
+    // Настроить сервер: карта + пароль
+    try {
+      const { gameServerManager } = await import('../services/game-server');
+      // Сменить карту
+      await gameServerManager.executeRcon(server.id, `changelevel ${map}`);
+      // Подождать загрузки карты
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Установить пароль
+      await gameServerManager.executeRcon(server.id, `sv_password "${serverPassword}"`);
+      console.log(`Server configured: map=${map}, password set`);
+    } catch (err) {
+      console.error('Failed to configure server:', err);
+    }
+
+    // Connect command с паролем
+    const connectCommand = `connect ${server.ip}:${server.port}; password ${serverPassword}`;
 
     res.json({
       success: true,
@@ -127,7 +144,8 @@ router.get('/:code', async (req: AuthRequest, res: Response) => {
 
     // Получить сервер для connect command
     const server = await findServerById(match.server_id);
-    const connectCommand = server ? `connect ${server.ip}:${server.port}` : null;
+    const serverPassword = match.lobby_code?.toLowerCase() || '';
+    const connectCommand = server ? `connect ${server.ip}:${server.port}; password ${serverPassword}` : null;
 
     res.json({
       matchId: match.id,
@@ -164,7 +182,7 @@ router.post('/:code/join', authMiddleware, async (req: AuthRequest, res: Respons
       return;
     }
 
-    if (match.status !== 'waiting') {
+    if (match.status !== 'waiting' && match.status !== 'live') {
       res.status(400).json({ error: 'Lobby is no longer accepting players' });
       return;
     }
@@ -199,10 +217,16 @@ router.post('/:code/join', authMiddleware, async (req: AuthRequest, res: Respons
       team,
     });
 
+    // Получить connect command для нового игрока
+    const server = await findServerById(match.server_id);
+    const serverPassword = match.lobby_code?.toLowerCase() || '';
+    const connectCommand = server ? `connect ${server.ip}:${server.port}; password ${serverPassword}` : null;
+
     res.json({
       success: true,
       team,
       matchId: match.id,
+      connectCommand,
     });
   } catch (error: any) {
     console.error('Error joining lobby:', error);
@@ -349,13 +373,22 @@ router.delete('/:code/cancel', authMiddleware, async (req: AuthRequest, res: Res
       return;
     }
 
-    if (match.status !== 'waiting') {
-      res.status(400).json({ error: 'Cannot cancel a match that has already started' });
+    if (match.status !== 'waiting' && match.status !== 'live') {
+      res.status(400).json({ error: 'Cannot cancel a match that has already finished' });
       return;
     }
 
     // Update match status
     await updateMatchStatus(match.id, 'cancelled');
+
+    // Очистить сервер: убрать пароль, кикнуть игроков
+    try {
+      const { gameServerManager } = await import('../services/game-server');
+      await gameServerManager.executeRcon(match.server_id, 'sv_password ""');
+      await gameServerManager.executeRcon(match.server_id, 'kickall');
+    } catch (err) {
+      console.error('Failed to cleanup server:', err);
+    }
 
     // Release server
     await updateServerStatus(match.server_id, 'IDLE');
