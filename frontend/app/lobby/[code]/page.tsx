@@ -21,6 +21,7 @@ interface LobbyData {
   status: string;
   hostId: string;
   expiresAt: string;
+  connectCommand: string | null;
   players: LobbyPlayer[];
 }
 
@@ -32,9 +33,8 @@ export default function LobbyPage() {
   const [lobby, setLobby] = useState<LobbyData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isStarting, setIsStarting] = useState(false);
-  const [connectCommand, setConnectCommand] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const code = params.code as string;
   const isHost = lobby?.hostId === user?.id;
@@ -100,7 +100,8 @@ export default function LobbyPage() {
     };
 
     const handleLobbyStarted = (data: any) => {
-      setConnectCommand(data.connectCommand);
+      // Обновить лобби с новым connectCommand
+      setLobby((prev) => prev ? { ...prev, connectCommand: data.connectCommand } : prev);
     };
 
     const handleLobbyCancelled = (data: any) => {
@@ -153,18 +154,6 @@ export default function LobbyPage() {
     }
   };
 
-  const handleStart = async () => {
-    if (!token) return;
-    setIsStarting(true);
-    try {
-      const result = await lobbyApi.start(token, code);
-      setConnectCommand(result.connectCommand);
-    } catch (err: any) {
-      setError(err.message);
-    }
-    setIsStarting(false);
-  };
-
   const handleCancel = async () => {
     if (!token) return;
     try {
@@ -176,12 +165,16 @@ export default function LobbyPage() {
   };
 
   const copyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/lobby/${code}`);
+    navigator.clipboard.writeText(`https://faceit.tj/lobby/${code}`);
+    setCopied('link');
+    setTimeout(() => setCopied(null), 2000);
   };
 
   const copyConnect = () => {
-    if (connectCommand) {
-      navigator.clipboard.writeText(connectCommand);
+    if (lobby?.connectCommand) {
+      navigator.clipboard.writeText(lobby.connectCommand);
+      setCopied('connect');
+      setTimeout(() => setCopied(null), 2000);
     }
   };
 
@@ -221,34 +214,6 @@ export default function LobbyPage() {
 
   if (!lobby) return null;
 
-  // Show connect command after match starts
-  if (connectCommand) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="glass-panel rounded-2xl p-8 max-w-lg w-full text-center">
-          <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
-            <span className="material-symbols-outlined text-5xl text-green-500">check_circle</span>
-          </div>
-          <h1 className="text-3xl font-black text-white mb-4">MATCH STARTED!</h1>
-          <div className="bg-background-dark rounded-lg p-4 mb-6">
-            <p className="text-sm text-gray-400 mb-2">Connect Command:</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 bg-background-secondary px-3 py-2 rounded text-primary font-mono text-sm">
-                {connectCommand}
-              </code>
-              <button
-                onClick={copyConnect}
-                className="p-2 bg-background-secondary rounded hover:bg-primary/20 transition-colors"
-              >
-                <span className="material-symbols-outlined text-primary">content_copy</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const team1Players = lobby.players.filter((p) => p.team === 1);
   const team2Players = lobby.players.filter((p) => p.team === 2);
   const isInLobby = lobby.players.some((p) => p.id === user?.id);
@@ -278,8 +243,10 @@ export default function LobbyPage() {
                   onClick={copyLink}
                   className="flex items-center gap-2 text-gray-400 text-sm hover:text-white transition-colors"
                 >
-                  <span>Copy Link</span>
-                  <span className="material-symbols-outlined text-base">content_copy</span>
+                  <span>{copied === 'link' ? 'Copied!' : 'Copy Link'}</span>
+                  <span className="material-symbols-outlined text-base">
+                    {copied === 'link' ? 'check' : 'content_copy'}
+                  </span>
                 </button>
               </div>
             </div>
@@ -383,15 +350,34 @@ export default function LobbyPage() {
           </div>
         </div>
 
-        {/* Start Button (Host only) */}
-        {isHost && lobby.players.length >= 2 && (
-          <button
-            onClick={handleStart}
-            disabled={isStarting}
-            className="w-full py-4 bg-primary text-background-dark font-black text-xl uppercase rounded-lg shadow-neon hover:shadow-neon-hover transition-all disabled:opacity-50"
-          >
-            {isStarting ? 'Starting...' : `Start Match (${lobby.players.length}/10 players)`}
-          </button>
+        {/* Connect Command */}
+        {lobby.connectCommand && (
+          <div className="glass-panel rounded-xl p-6">
+            <div className="flex flex-col md:flex-row items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-2xl text-green-500">play_arrow</span>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400">Connect to Server</p>
+                  <p className="text-xs text-gray-500">Open CS2 console and paste command</p>
+                </div>
+              </div>
+              <div className="flex-1 flex items-center gap-2 w-full md:w-auto">
+                <code className="flex-1 bg-background-dark px-4 py-3 rounded-lg text-primary font-mono text-lg border border-primary/30">
+                  {lobby.connectCommand}
+                </code>
+                <button
+                  onClick={copyConnect}
+                  className="p-3 bg-primary text-background-dark rounded-lg hover:shadow-neon transition-all"
+                >
+                  <span className="material-symbols-outlined">
+                    {copied === 'connect' ? 'check' : 'content_copy'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

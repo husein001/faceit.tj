@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth.middleware';
 import { premiumMiddleware } from '../middleware/premium.middleware';
 import { findUserById, setUserActiveLobby } from '../models/user.model';
-import { findIdleServer, updateServerStatus } from '../models/server.model';
+import { findIdleServer, updateServerStatus, findServerById } from '../models/server.model';
 import {
   createMatch,
   findMatchByLobbyCode,
@@ -20,6 +20,7 @@ import { balanceTeams } from '../services/balance.service';
 import { io } from '../index';
 import { MapName } from '../types';
 import { replenishPool } from '../workers/server-pool.worker';
+import { serverProvisioner } from '../services/game-server';
 
 const router = Router();
 
@@ -42,11 +43,22 @@ router.post('/create', authMiddleware, premiumMiddleware, async (req: AuthReques
       return;
     }
 
-    // Find an idle server
-    const server = await findIdleServer();
+    // Find an idle server or provision new one
+    let server = await findIdleServer();
+
     if (!server) {
-      res.status(503).json({ error: 'No servers available' });
-      return;
+      // Автоматически создать новый сервер
+      console.log('No idle servers, provisioning new one...');
+      const result = await serverProvisioner.provision({ name: `Faceit.TJ Server`, ip: '', port: 0, rconPassword: '' });
+      if (!result.success || !result.serverId) {
+        res.status(503).json({ error: 'No servers available and failed to provision new one' });
+        return;
+      }
+      server = await findServerById(result.serverId);
+      if (!server) {
+        res.status(503).json({ error: 'Server provisioned but not found' });
+        return;
+      }
     }
 
     // Generate unique lobby code
@@ -62,8 +74,8 @@ router.post('/create', authMiddleware, premiumMiddleware, async (req: AuthReques
     // Create the match/lobby
     const match = await createMatch(server.id, 'custom', map, userId, lobbyCode);
 
-    // Reserve the server
-    await updateServerStatus(server.id, 'RESERVED', match.id, match.reserved_until);
+    // Reserve the server and set to IN_GAME (сервер сразу готов к подключению)
+    await updateServerStatus(server.id, 'IN_GAME', match.id, match.reserved_until);
 
     // Пополнить пул серверов в фоне (не блокирует ответ)
     replenishPool();
@@ -74,12 +86,16 @@ router.post('/create', authMiddleware, premiumMiddleware, async (req: AuthReques
     // Update user's active lobby
     await setUserActiveLobby(userId, match.id);
 
+    // Сразу формируем connect command
+    const connectCommand = `connect ${server.ip}:${server.port}`;
+
     res.json({
       success: true,
       lobbyCode,
       matchId: match.id,
       map,
       expiresAt: match.lobby_expires_at,
+      connectCommand,
       server: {
         name: server.name,
         ip: server.ip,
@@ -109,6 +125,10 @@ router.get('/:code', async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    // Получить сервер для connect command
+    const server = await findServerById(match.server_id);
+    const connectCommand = server ? `connect ${server.ip}:${server.port}` : null;
+
     res.json({
       matchId: match.id,
       lobbyCode: match.lobby_code,
@@ -116,6 +136,7 @@ router.get('/:code', async (req: AuthRequest, res: Response) => {
       status: match.status,
       hostId: match.created_by,
       expiresAt: match.lobby_expires_at,
+      connectCommand,
       players: data.players.map(p => ({
         id: p.user_id,
         team: p.team,
