@@ -169,8 +169,8 @@ class ServerProvisioner extends EventEmitter {
       console.log(`Running: docker run ${containerName}`);
       await execAsync(dockerCmd);
 
-      // Подождать старта контейнера (10 минут для первого скачивания CS2)
-      await this.waitForContainer(containerName, 600000);
+      // Подождать старта контейнера (60 минут для скачивания CS2)
+      await this.waitForContainer(containerName, 3600000);
 
       // Получить IP контейнера
       const containerIp = await this.getContainerIp(containerName);
@@ -259,12 +259,10 @@ class ServerProvisioner extends EventEmitter {
       `-p ${port}:27015/udp`,
       `-p ${port + 100}:27020/udp`, // GOTV
       // Ресурсы (адаптивно под сервер)
-      `--memory=${process.env.CS2_MEMORY_LIMIT || '2g'}`,
-      `--cpus=${process.env.CS2_CPU_LIMIT || '0.9'}`,
+      `--memory=${process.env.CS2_MEMORY_LIMIT || '4g'}`,
+      `--cpus=${process.env.CS2_CPU_LIMIT || '1'}`,
       // Переменные окружения
       ...envVars.map(e => `-e "${e}"`),
-      // Volumes для Get5 конфигов
-      `-v cs2_server_${port}:/home/steam/cs2-dedicated/`,
       // Image
       this.config.image,
     ];
@@ -304,6 +302,12 @@ class ServerProvisioner extends EventEmitter {
   }
 
   private async getContainerIp(containerName: string): Promise<string> {
+    // Используем внешний IP сервера если задан в env
+    const externalIp = process.env.EXTERNAL_IP || process.env.SERVER_IP;
+    if (externalIp) {
+      return externalIp;
+    }
+
     try {
       const { stdout } = await execAsync(
         `docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${containerName}`
