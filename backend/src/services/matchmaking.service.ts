@@ -7,6 +7,7 @@ import { balanceTeams } from './balance.service';
 import { generateGet5Config, selectRandomMap } from './get5.service';
 import { loadGet5Match, kickAllPlayers } from './server.service';
 import { io } from '../index';
+import { replenishPool } from '../workers/server-pool.worker';
 
 const QUEUE_KEY = `${QUEUE_PREFIX}main`;
 const CONNECTION_TIMEOUT = 3 * 60 * 1000; // 3 minutes
@@ -130,6 +131,9 @@ export async function processQueue(): Promise<void> {
 
     // Update server status
     await updateServerStatus(server.id, 'LOADING', match.id);
+
+    // Пополнить пул серверов в фоне
+    replenishPool();
 
     // Generate Get5 config
     const config = generateGet5Config(match.id, team1, team2, map);

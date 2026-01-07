@@ -19,6 +19,7 @@ import { loadGet5Match } from '../services/server.service';
 import { balanceTeams } from '../services/balance.service';
 import { io } from '../index';
 import { MapName } from '../types';
+import { replenishPool } from '../workers/server-pool.worker';
 
 const router = Router();
 
@@ -63,6 +64,9 @@ router.post('/create', authMiddleware, premiumMiddleware, async (req: AuthReques
 
     // Reserve the server
     await updateServerStatus(server.id, 'RESERVED', match.id, match.reserved_until);
+
+    // Пополнить пул серверов в фоне (не блокирует ответ)
+    replenishPool();
 
     // Add host as first player (team 1 by default)
     await addMatchPlayer(match.id, userId, 1);

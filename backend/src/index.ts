@@ -51,6 +51,7 @@ import { startMatchmakerWorker } from './workers/matchmaker.worker';
 import { startServerHealthWorker } from './workers/server-health.worker';
 import { startLobbyTimeoutWorker } from './workers/lobby-timeout.worker';
 import { startServerScalerWorker } from './workers/server-scaler.worker';
+import { startServerPoolWorker } from './workers/server-pool.worker';
 import { gameServerManager, serverMonitor } from './services/game-server';
 import serversRoutes from './routes/servers';
 
@@ -124,7 +125,7 @@ async function startServer() {
   startMatchmakerWorker();
   startServerHealthWorker();
   startLobbyTimeoutWorker();
-  startServerScalerWorker();
+  startServerPoolWorker(); // Поднимает MIN_SERVERS серверов при старте
 
   httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
