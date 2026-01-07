@@ -1,11 +1,14 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:15-alpine
     container_name: faceit_postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: faceit_tj
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
     ports:
       - "5432:5432"
     volumes:
@@ -16,10 +19,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - faceit_network
 
   redis:
     image: redis:7-alpine
     container_name: faceit_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
     volumes:
@@ -29,52 +36,105 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - faceit_network
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     container_name: faceit_backend
+    restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
-      - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/faceit_tj
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD:-postgres123}@postgres:5432/faceit_tj
       - REDIS_URL=redis://redis:6379
       - PORT=3001
-      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key}
+      - JWT_SECRET=${JWT_SECRET}
       - STEAM_API_KEY=${STEAM_API_KEY}
-      - GET5_API_KEY=${GET5_API_KEY:-your-get5-api-key}
-      - API_URL=http://localhost:3001
-      - FRONTEND_URL=http://localhost:3000
+      - GET5_API_KEY=${GET5_API_KEY}
+      - FACEIT_API_KEY=${FACEIT_API_KEY}
+      - API_URL=${API_URL:-http://localhost:3001}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      # Docker для управления CS2 серверами
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - CS2_DOCKER_IMAGE=${CS2_DOCKER_IMAGE:-joedwards32/cs2}
+      - DOCKER_NETWORK=faceit_network
+      - GSLT_TOKEN=${GSLT_TOKEN}
+      - CS2_STEAM_API_KEY=${CS2_STEAM_API_KEY:-${STEAM_API_KEY}}
+      # Server pool
+      - SERVER_PORT_START=${SERVER_PORT_START:-27015}
+      - SERVER_PORT_END=${SERVER_PORT_END:-27030}
+      # Auto-scaling
+      - AUTO_SCALING_ENABLED=${AUTO_SCALING_ENABLED:-true}
+      - MIN_SERVERS=${MIN_SERVERS:-2}
+      - MAX_SERVERS=${MAX_SERVERS:-10}
+      - TARGET_IDLE_SERVERS=${TARGET_IDLE_SERVERS:-2}
+      # CS2 settings
+      - CS2_TICKRATE=${CS2_TICKRATE:-128}
+      - CS2_MAXPLAYERS=${CS2_MAXPLAYERS:-10}
+      - CS2_STARTMAP=${CS2_STARTMAP:-de_dust2}
+      - GET5_WEBHOOK_URL=${GET5_WEBHOOK_URL}
+      # Admin
+      - ADMIN_LOGIN=${ADMIN_LOGIN:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+    volumes:
+      # Docker socket для управления контейнерами CS2
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Логи
+      - ./logs/backend:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./backend/src:/app/src
-    command: npm run dev
+    networks:
+      - faceit_network
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     container_name: faceit_frontend
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
-      - NEXT_PUBLIC_WS_URL=http://localhost:3001
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${API_URL:-http://localhost:3001}
+      - NEXT_PUBLIC_WS_URL=${API_URL:-http://localhost:3001}
     depends_on:
       - backend
+    networks:
+      - faceit_network
+
+  # Nginx reverse proxy (опционально для продакшена)
+  nginx:
+    image: nginx:alpine
+    container_name: faceit_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./frontend/app:/app/app
-      - ./frontend/components:/app/components
-      - ./frontend/lib:/app/lib
-      - ./frontend/hooks:/app/hooks
-    command: npm run dev
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - faceit_network
+    profiles:
+      - production
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  faceit_network:
+    driver: bridge
+    name: faceit_network

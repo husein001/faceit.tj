@@ -50,6 +50,9 @@ import statsRoutes from './routes/stats';
 import { startMatchmakerWorker } from './workers/matchmaker.worker';
 import { startServerHealthWorker } from './workers/server-health.worker';
 import { startLobbyTimeoutWorker } from './workers/lobby-timeout.worker';
+import { startServerScalerWorker } from './workers/server-scaler.worker';
+import { gameServerManager, serverMonitor } from './services/game-server';
+import serversRoutes from './routes/servers';
 
 const app = express();
 const httpServer = createServer(app);
@@ -84,6 +87,7 @@ app.use('/api/webhook', webhookRoutes);
 app.use('/api/premium', premiumRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/servers', serversRoutes);
 
 // Initialize Socket.io handlers
 initSocketHandlers(io);
@@ -112,10 +116,15 @@ async function startServer() {
     process.exit(1);
   }
 
+  // Start game server manager and monitor
+  gameServerManager.start();
+  serverMonitor.start();
+
   // Start workers
   startMatchmakerWorker();
   startServerHealthWorker();
   startLobbyTimeoutWorker();
+  startServerScalerWorker();
 
   httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
@@ -128,6 +137,11 @@ startServer().catch(console.error);
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received. Shutting down gracefully...');
+
+  // Stop game server components
+  gameServerManager.stop();
+  serverMonitor.stop();
+
   await redis.quit();
   httpServer.close(() => {
     console.log('Server closed');

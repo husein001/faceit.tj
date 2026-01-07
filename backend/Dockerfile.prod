@@ -1,0 +1,56 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Установить зависимости для сборки
+RUN apk add --no-cache python3 make g++
+
+# Копировать package files
+COPY package*.json ./
+
+# Установить все зависимости (включая devDependencies для сборки)
+RUN npm ci
+
+# Копировать исходный код
+COPY . .
+
+# Собрать TypeScript
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Установить Docker CLI для управления контейнерами
+RUN apk add --no-cache docker-cli
+
+# Копировать package files
+COPY package*.json ./
+
+# Установить только production зависимости
+RUN npm ci --only=production && npm cache clean --force
+
+# Копировать собранный код
+COPY --from=builder /app/dist ./dist
+
+# Создать директорию для логов
+RUN mkdir -p /app/logs
+
+# Создать non-root пользователя
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Дать права на логи
+RUN chown -R nodejs:nodejs /app/logs
+
+# Не переключаемся на non-root пользователя чтобы Docker socket работал
+# USER nodejs
+
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+
+CMD ["node", "dist/index.js"]
