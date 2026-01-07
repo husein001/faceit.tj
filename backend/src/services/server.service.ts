@@ -5,7 +5,9 @@ import { findServerById, updateServerStatus, updateServerHeartbeat } from '../mo
 const rconConnections: Map<string, Rcon> = new Map();
 
 export async function getRconConnection(server: Server): Promise<Rcon> {
-  const key = `${server.ip}:${server.port}`;
+  // Используем internal_ip для RCON если задан (Docker IP), иначе внешний ip
+  const rconHost = server.internal_ip || server.ip;
+  const key = `${rconHost}:${server.port}`;
 
   if (rconConnections.has(key)) {
     const existing = rconConnections.get(key)!;
@@ -17,7 +19,7 @@ export async function getRconConnection(server: Server): Promise<Rcon> {
   }
 
   const rcon = new Rcon({
-    host: server.ip,
+    host: rconHost,
     port: server.port,
     timeout: 5000,
   });
@@ -113,7 +115,8 @@ export async function executeConfig(serverId: string, configName: string): Promi
 }
 
 export function closeRconConnection(server: Server): void {
-  const key = `${server.ip}:${server.port}`;
+  const rconHost = server.internal_ip || server.ip;
+  const key = `${rconHost}:${server.port}`;
   const rcon = rconConnections.get(key);
   if (rcon) {
     rcon.disconnect();
