@@ -169,8 +169,8 @@ class ServerProvisioner extends EventEmitter {
       console.log(`Running: docker run ${containerName}`);
       await execAsync(dockerCmd);
 
-      // Подождать старта контейнера
-      await this.waitForContainer(containerName, 120000);
+      // Подождать старта контейнера (10 минут для первого скачивания CS2)
+      await this.waitForContainer(containerName, 600000);
 
       // Получить IP контейнера
       const containerIp = await this.getContainerIp(containerName);
