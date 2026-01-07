@@ -34,7 +34,7 @@ export async function findMatchById(id: string): Promise<Match | null> {
 
 export async function findMatchByLobbyCode(code: string): Promise<Match | null> {
   return queryOne<Match>(
-    `SELECT * FROM matches WHERE lobby_code = $1 AND status = 'waiting'`,
+    `SELECT * FROM matches WHERE lobby_code = $1 AND status IN ('waiting', 'live') ORDER BY created_at DESC LIMIT 1`,
     [code]
   );
 }

@@ -30,6 +30,7 @@ export interface Server {
   id: string;
   name: string;
   ip: string;
+  internal_ip: string | null; // Docker IP для RCON подключения
   port: number;
   rcon_password: string;
   status: ServerStatus;

@@ -48,11 +48,14 @@ class GameServerManager extends EventEmitter {
   // ============ RCON CONNECTION MANAGEMENT ============
 
   private getRconKey(server: Server): string {
-    return `${server.ip}:${server.port}`;
+    const host = server.internal_ip || server.ip;
+    return `${host}:${server.port}`;
   }
 
   async getRconConnection(server: Server): Promise<Rcon> {
     const key = this.getRconKey(server);
+    // Используем internal_ip для RCON если задан (Docker IP), иначе внешний ip
+    const rconHost = server.internal_ip || server.ip;
 
     if (this.rconConnections.has(key)) {
       const existing = this.rconConnections.get(key)!;
@@ -63,7 +66,7 @@ class GameServerManager extends EventEmitter {
     }
 
     const rcon = new Rcon({
-      host: server.ip,
+      host: rconHost,
       port: server.port,
       timeout: 5000,
     });

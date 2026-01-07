@@ -172,21 +172,19 @@ class ServerProvisioner extends EventEmitter {
       // Подождать старта контейнера (60 минут для скачивания CS2)
       await this.waitForContainer(containerName, 3600000);
 
-      // Получить IP контейнера
-      const containerIp = await this.getContainerIp(containerName);
+      // Получить Docker IP контейнера (для RCON)
+      const dockerIp = await this.getDockerContainerIp(containerName);
+
+      // Внешний IP для игроков
+      const externalIp = process.env.EXTERNAL_IP || process.env.SERVER_IP || dockerIp;
 
       // Зарегистрировать сервер в БД
       const server = await createServer(
         config.name || `Faceit.TJ #${port}`,
-        containerIp,
-        27015, // Внутренний порт контейнера
-        rconPassword
-      );
-
-      // Обновить порт в БД (внешний порт для connect)
-      await query(
-        `UPDATE servers SET port = $1 WHERE id = $2`,
-        [port, server.id]
+        externalIp,  // Внешний IP для connect команды
+        port,        // Внешний порт для connect
+        rconPassword,
+        dockerIp     // Docker IP для RCON подключения
       );
 
       // Сохранить информацию о контейнере
@@ -301,13 +299,7 @@ class ServerProvisioner extends EventEmitter {
     throw new Error(`Container ${containerName} failed to start within ${timeout / 1000}s`);
   }
 
-  private async getContainerIp(containerName: string): Promise<string> {
-    // Используем внешний IP сервера если задан в env
-    const externalIp = process.env.EXTERNAL_IP || process.env.SERVER_IP;
-    if (externalIp) {
-      return externalIp;
-    }
-
+  private async getDockerContainerIp(containerName: string): Promise<string> {
     try {
       const { stdout } = await execAsync(
         `docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${containerName}`

@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS servers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(50) NOT NULL,
     ip VARCHAR(45) NOT NULL,
+    internal_ip VARCHAR(45),  -- Docker IP для RCON подключения
     port INTEGER NOT NULL,
     rcon_password VARCHAR(100) NOT NULL,
     status VARCHAR(20) DEFAULT 'IDLE',

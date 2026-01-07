@@ -57,13 +57,14 @@ export async function createServer(
   name: string,
   ip: string,
   port: number,
-  rconPassword: string
+  rconPassword: string,
+  internalIp?: string
 ): Promise<Server> {
   const rows = await query<Server>(
-    `INSERT INTO servers (name, ip, port, rcon_password)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO servers (name, ip, port, rcon_password, internal_ip)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [name, ip, port, rconPassword]
+    [name, ip, port, rconPassword, internalIp || null]
   );
   return rows[0];
 }
