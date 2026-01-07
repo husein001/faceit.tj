@@ -258,9 +258,9 @@ class ServerProvisioner extends EventEmitter {
       `-p ${port}:27015/tcp`,
       `-p ${port}:27015/udp`,
       `-p ${port + 100}:27020/udp`, // GOTV
-      // Ресурсы
-      `--memory=4g`,
-      `--cpus=2`,
+      // Ресурсы (адаптивно под сервер)
+      `--memory=${process.env.CS2_MEMORY_LIMIT || '2g'}`,
+      `--cpus=${process.env.CS2_CPU_LIMIT || '0.9'}`,
       // Переменные окружения
       ...envVars.map(e => `-e "${e}"`),
       // Volumes для Get5 конфигов

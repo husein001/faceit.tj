@@ -13,10 +13,10 @@ import { query } from '../config/database';
 
 const router = Router();
 
-// Статичные данные для админки (в продакшене использовать env переменные)
+// Admin credentials from ENV
 const ADMIN_CREDENTIALS = {
-  login: 'admin',
-  password: 'faceit2024',
+  login: process.env.ADMIN_LOGIN || 'admin',
+  password: process.env.ADMIN_PASSWORD || 'faceit2024',
 };
 
 interface AdminRequest extends Request {

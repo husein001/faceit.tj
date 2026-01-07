@@ -353,7 +353,60 @@ router.post('/:id/get5/unpause', adminAuthMiddleware, async (req: AdminRequest, 
   }
 });
 
-// ============ PROVISIONING ============
+// ============ MANUAL SERVER REGISTRATION ============
+
+// Добавить существующий сервер вручную (без Docker)
+router.post('/register', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
+  try {
+    const { name, ip, port, rconPassword } = req.body;
+
+    if (!name || !ip || !port || !rconPassword) {
+      res.status(400).json({
+        error: 'Missing required fields',
+        required: ['name', 'ip', 'port', 'rconPassword']
+      });
+      return;
+    }
+
+    // Проверить что сервер с таким IP:port не существует
+    const { findServerByIpPort } = await import('../models/server.model');
+    const existing = await findServerByIpPort(ip, port);
+    if (existing) {
+      res.status(400).json({ error: 'Server with this IP:port already exists' });
+      return;
+    }
+
+    // Зарегистрировать сервер
+    const server = await gameServerManager.registerServer({
+      name,
+      ip,
+      port: parseInt(port, 10),
+      rconPassword,
+    });
+
+    // Проверить подключение
+    const isOnline = await gameServerManager.checkServerHealth(server.id);
+
+    res.json({
+      success: true,
+      server: {
+        id: server.id,
+        name: server.name,
+        ip: server.ip,
+        port: server.port,
+        status: isOnline ? 'IDLE' : 'OFFLINE',
+      },
+      message: isOnline
+        ? 'Server registered and online'
+        : 'Server registered but RCON connection failed - check credentials',
+    });
+  } catch (error) {
+    console.error('Error registering server:', error);
+    res.status(500).json({ error: 'Failed to register server' });
+  }
+});
+
+// ============ PROVISIONING (Docker) ============
 
 // Создать новый сервер
 router.post('/provision', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
