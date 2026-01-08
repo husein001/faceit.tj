@@ -83,6 +83,9 @@ class ServerProvisioner extends EventEmitter {
       // Проверить образ
       await this.ensureImage();
 
+      // Создать общий volume для CS2 данных (скачивается один раз)
+      await this.ensureSharedVolume();
+
       this.isInitialized = true;
       this.emit('provisioner:initialized');
       console.log('ServerProvisioner initialized successfully');
@@ -115,6 +118,73 @@ class ServerProvisioner extends EventEmitter {
       console.log(`Pulling Docker image ${this.config.image}...`);
       await execAsync(`docker pull ${this.config.image}`);
       console.log(`Docker image ${this.config.image} pulled successfully`);
+    }
+  }
+
+  private async ensureSharedVolume(): Promise<void> {
+    const volumeName = 'cs2-shared-data';
+    try {
+      await execAsync(`docker volume inspect ${volumeName}`);
+      console.log(`Shared volume ${volumeName} exists`);
+    } catch {
+      console.log(`Creating shared volume ${volumeName}...`);
+      await execAsync(`docker volume create ${volumeName}`);
+      console.log(`Shared volume ${volumeName} created`);
+    }
+  }
+
+  private async isCs2Installed(): Promise<boolean> {
+    try {
+      // Проверяем наличие основного исполняемого файла CS2 в shared volume
+      const { stdout } = await execAsync(
+        `docker run --rm -v cs2-shared-data:/data alpine ls -la /data/game/bin/linuxsteamrt64/cs2 2>/dev/null || echo "not_found"`
+      );
+      return !stdout.includes('not_found') && stdout.includes('cs2');
+    } catch {
+      return false;
+    }
+  }
+
+  async preloadCs2(): Promise<void> {
+    console.log('Pre-loading CS2 to shared volume...');
+    const isInstalled = await this.isCs2Installed();
+    if (isInstalled) {
+      console.log('CS2 already installed in shared volume');
+      return;
+    }
+
+    console.log('CS2 not found, starting preload container (this may take 30-60 minutes)...');
+    const preloadContainer = 'cs2-preload';
+
+    try {
+      // Удалить старый контейнер если есть
+      await execAsync(`docker rm -f ${preloadContainer} 2>/dev/null`).catch(() => {});
+
+      // Запустить контейнер для загрузки CS2
+      const cmd = [
+        'docker run -d',
+        `--name ${preloadContainer}`,
+        `-v cs2-shared-data:/home/steam/cs2-dedicated`,
+        `-e SRCDS_TOKEN=${this.config.gsltToken}`,
+        `-e CS2_PORT=27015`,
+        this.config.image,
+      ].join(' ');
+
+      await execAsync(cmd);
+      console.log('Preload container started, waiting for CS2 download...');
+
+      // Ждём завершения загрузки (до 60 минут)
+      await this.waitForContainer(preloadContainer, 3600000);
+
+      // Останавливаем preload контейнер
+      await execAsync(`docker stop ${preloadContainer}`);
+      await execAsync(`docker rm ${preloadContainer}`);
+
+      console.log('CS2 pre-loaded successfully');
+    } catch (error) {
+      console.error('Failed to preload CS2:', error);
+      // Очистка
+      await execAsync(`docker rm -f ${preloadContainer} 2>/dev/null`).catch(() => {});
     }
   }
 
@@ -169,8 +239,12 @@ class ServerProvisioner extends EventEmitter {
       console.log(`Running: docker run ${containerName}`);
       await execAsync(dockerCmd);
 
-      // Подождать старта контейнера (60 минут для скачивания CS2)
-      await this.waitForContainer(containerName, 3600000);
+      // Проверяем установлен ли CS2 - если да, короткий таймаут; если нет, долгий
+      const cs2Installed = await this.isCs2Installed();
+      const waitTimeout = cs2Installed ? 120000 : 3600000; // 2 мин если есть, 60 мин если нет
+      console.log(`CS2 ${cs2Installed ? 'installed' : 'not installed'}, waiting ${waitTimeout / 1000}s for container...`);
+
+      await this.waitForContainer(containerName, waitTimeout);
 
       // Получить Docker IP контейнера (для RCON)
       const dockerIp = await this.getDockerContainerIp(containerName);
@@ -256,6 +330,8 @@ class ServerProvisioner extends EventEmitter {
       `-p ${port}:27015/tcp`,
       `-p ${port}:27015/udp`,
       `-p ${port + 100}:27020/udp`, // GOTV
+      // Shared volume для CS2 данных (скачивается один раз, используется всеми)
+      `-v cs2-shared-data:/home/steam/cs2-dedicated`,
       // Ресурсы (адаптивно под сервер)
       `--memory=${process.env.CS2_MEMORY_LIMIT || '4g'}`,
       `--cpus=${process.env.CS2_CPU_LIMIT || '1'}`,
@@ -329,12 +405,7 @@ class ServerProvisioner extends EventEmitter {
       await execAsync(`docker stop ${containerName}`);
       await execAsync(`docker rm ${containerName}`);
 
-      // Удалить volume
-      try {
-        await execAsync(`docker volume rm cs2_server_${server.port}`);
-      } catch {
-        // Volume может не существовать
-      }
+      // НЕ удаляем shared volume - он общий для всех серверов
 
       // Освободить порт
       this.releasePort(server.port);
@@ -485,6 +556,23 @@ class ServerProvisioner extends EventEmitter {
 
   getConfig(): DockerConfig {
     return { ...this.config };
+  }
+
+  async getStatus(): Promise<{
+    initialized: boolean;
+    cs2Installed: boolean;
+    usedPorts: number[];
+    availablePorts: number;
+    activeContainers: number;
+  }> {
+    const cs2Installed = await this.isCs2Installed();
+    return {
+      initialized: this.isInitialized,
+      cs2Installed,
+      usedPorts: this.getUsedPorts(),
+      availablePorts: this.getAvailablePortCount(),
+      activeContainers: this.containers.size,
+    };
   }
 }
 
