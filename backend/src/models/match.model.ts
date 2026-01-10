@@ -2,7 +2,7 @@ import { query, queryOne } from '../config/database';
 import { Match, MatchPlayer, MatchStatus, User } from '../types';
 
 export async function createMatch(
-  serverId: string,
+  serverId: string | null,
   matchType: 'matchmaking' | 'custom',
   map: string,
   createdBy?: string,
@@ -23,6 +23,14 @@ export async function createMatch(
     [serverId, matchType, map, createdBy || null, lobbyCode || null, lobbyExpiresAt, reservedUntil]
   );
   return rows[0];
+}
+
+// Назначить сервер матчу
+export async function assignServerToMatch(matchId: string, serverId: string): Promise<Match | null> {
+  return queryOne<Match>(
+    `UPDATE matches SET server_id = $2 WHERE id = $1 RETURNING *`,
+    [matchId, serverId]
+  );
 }
 
 export async function findMatchById(id: string): Promise<Match | null> {
