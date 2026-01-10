@@ -4,10 +4,12 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { getSteamLoginUrl } from '@/lib/auth';
+import { premiumApi } from '@/lib/api';
 
 export default function Header() {
   const { user, isAuthenticated, isLoading, fetchUser, logout } = useAuth();
   const [steamLoginUrl, setSteamLoginUrl] = useState('#');
+  const [premiumEnabled, setPremiumEnabled] = useState(false);
 
   useEffect(() => {
     fetchUser();
@@ -16,6 +18,13 @@ export default function Header() {
   // Устанавливаем URL для Steam только на клиенте
   useEffect(() => {
     setSteamLoginUrl(getSteamLoginUrl());
+  }, []);
+
+  // Проверяем включен ли премиум
+  useEffect(() => {
+    premiumApi.getInfo().then((info) => {
+      setPremiumEnabled(info.enabled);
+    }).catch(() => {});
   }, []);
 
   return (
@@ -39,11 +48,16 @@ export default function Header() {
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-8">
             <Link href="/play" className="text-sm font-medium text-gray-300 hover:text-primary transition-colors">
-              ИГРАТЬ
+              НАЙТИ ИГРУ
             </Link>
-            <Link href="/premium" className="text-sm font-medium text-primary drop-shadow-[0_0_8px_rgba(0,217,255,0.4)]">
-              ПРЕМИУМ
+            <Link href="/lobby/create" className="text-sm font-medium text-gray-300 hover:text-primary transition-colors">
+              СОЗДАТЬ ЛОББИ
             </Link>
+            {premiumEnabled && (
+              <Link href="/premium" className="text-sm font-medium text-primary drop-shadow-[0_0_8px_rgba(0,217,255,0.4)]">
+                ПРЕМИУМ
+              </Link>
+            )}
           </nav>
 
           {/* Actions */}
