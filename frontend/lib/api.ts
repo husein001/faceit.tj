@@ -101,6 +101,16 @@ export const adminApi = {
   rejectRequest: (token: string, id: string, note?: string) =>
     request<any>(`/api/admin/premium-requests/${id}/reject`, { method: 'POST', token, body: { note } }),
   getServers: (token: string) => request<any>('/api/admin/servers', { token }),
+  addServer: (token: string, data: { name: string; ip: string; port: string; rconPassword: string; internalIp?: string }) =>
+    request<any>('/api/admin/servers', { method: 'POST', token, body: data }),
+  updateServer: (token: string, id: string, data: { name?: string; ip?: string; port?: string; rconPassword?: string; internalIp?: string }) =>
+    request<any>(`/api/admin/servers/${id}`, { method: 'PUT', token, body: data }),
+  deleteServer: (token: string, id: string) =>
+    request<any>(`/api/admin/servers/${id}`, { method: 'DELETE', token }),
+  setServerOnline: (token: string, id: string) =>
+    request<any>(`/api/admin/servers/${id}/online`, { method: 'POST', token }),
+  setServerOffline: (token: string, id: string) =>
+    request<any>(`/api/admin/servers/${id}/offline`, { method: 'POST', token }),
   getMatches: (token: string) => request<any>('/api/admin/matches', { token }),
   getUsers: (token: string, limit?: number) =>
     request<any>(`/api/admin/users${limit ? `?limit=${limit}` : ''}`, { token }),

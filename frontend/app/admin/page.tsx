@@ -37,6 +37,18 @@ interface Stats {
   };
 }
 
+interface Server {
+  id: string;
+  name: string;
+  ip: string;
+  internal_ip: string | null;
+  port: number;
+  rcon_password: string;
+  status: 'IDLE' | 'IN_GAME' | 'OFFLINE' | 'RESERVED';
+  current_match_id: string | null;
+  last_heartbeat: string | null;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -46,13 +58,25 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'stats'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'stats' | 'servers'>('servers');
   const [stats, setStats] = useState<Stats | null>(null);
   const [pendingRequests, setPendingRequests] = useState<PremiumRequest[]>([]);
   const [allRequests, setAllRequests] = useState<PremiumRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [actionNote, setActionNote] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Серверы
+  const [servers, setServers] = useState<Server[]>([]);
+  const [showServerForm, setShowServerForm] = useState(false);
+  const [editingServer, setEditingServer] = useState<Server | null>(null);
+  const [serverForm, setServerForm] = useState({
+    name: '',
+    ip: '',
+    port: '',
+    rconPassword: '',
+    internalIp: '',
+  });
 
   useEffect(() => {
     const savedToken = localStorage.getItem('admin_token');
@@ -111,6 +135,9 @@ export default function AdminPage() {
       } else if (activeTab === 'pending') {
         const requests = await adminApi.getPendingRequests(token);
         setPendingRequests(requests);
+      } else if (activeTab === 'servers') {
+        const serversData = await adminApi.getServers(token);
+        setServers(serversData);
       } else {
         const requests = await adminApi.getAllRequests(token, 50);
         setAllRequests(requests);
@@ -120,6 +147,77 @@ export default function AdminPage() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function handleAddServer(e: React.FormEvent) {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      await adminApi.addServer(token, serverForm);
+      setServerForm({ name: '', ip: '', port: '', rconPassword: '', internalIp: '' });
+      setShowServerForm(false);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Ошибка добавления сервера');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleUpdateServer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingServer) return;
+    setIsLoading(true);
+    try {
+      await adminApi.updateServer(token, editingServer.id, serverForm);
+      setServerForm({ name: '', ip: '', port: '', rconPassword: '', internalIp: '' });
+      setEditingServer(null);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Ошибка обновления сервера');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleDeleteServer(id: string) {
+    if (!confirm('Удалить сервер?')) return;
+    try {
+      await adminApi.deleteServer(token, id);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Ошибка удаления сервера');
+    }
+  }
+
+  async function handleSetServerOnline(id: string) {
+    try {
+      await adminApi.setServerOnline(token, id);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Ошибка');
+    }
+  }
+
+  async function handleSetServerOffline(id: string) {
+    try {
+      await adminApi.setServerOffline(token, id);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Ошибка');
+    }
+  }
+
+  function startEditServer(server: Server) {
+    setEditingServer(server);
+    setServerForm({
+      name: server.name,
+      ip: server.ip,
+      port: String(server.port),
+      rconPassword: server.rcon_password,
+      internalIp: server.internal_ip || '',
+    });
+    setShowServerForm(false);
   }
 
   async function handleApprove(id: string) {
@@ -253,7 +351,17 @@ export default function AdminPage() {
         )}
 
         {/* Табы */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
+          <button
+            onClick={() => setActiveTab('servers')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'servers'
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Серверы ({servers.length})
+          </button>
           <button
             onClick={() => setActiveTab('pending')}
             className={`px-4 py-2 rounded-lg transition-colors ${
@@ -380,6 +488,191 @@ export default function AdminPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Серверы */}
+            {activeTab === 'servers' && (
+              <div className="space-y-6">
+                {/* Кнопка добавить */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setShowServerForm(true);
+                      setEditingServer(null);
+                      setServerForm({ name: '', ip: '', port: '', rconPassword: '', internalIp: '' });
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    + Добавить сервер
+                  </button>
+                </div>
+
+                {/* Форма добавления/редактирования */}
+                {(showServerForm || editingServer) && (
+                  <form
+                    onSubmit={editingServer ? handleUpdateServer : handleAddServer}
+                    className="bg-gray-800 rounded-lg p-6"
+                  >
+                    <h3 className="text-lg font-bold text-white mb-4">
+                      {editingServer ? 'Редактировать сервер' : 'Добавить сервер'}
+                    </h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-300 mb-2">Название *</label>
+                        <input
+                          type="text"
+                          value={serverForm.name}
+                          onChange={(e) => setServerForm({ ...serverForm, name: e.target.value })}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+                          placeholder="Faceit.TJ #1"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 mb-2">IP адрес *</label>
+                        <input
+                          type="text"
+                          value={serverForm.ip}
+                          onChange={(e) => setServerForm({ ...serverForm, ip: e.target.value })}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+                          placeholder="109.73.194.162"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 mb-2">Порт *</label>
+                        <input
+                          type="number"
+                          value={serverForm.port}
+                          onChange={(e) => setServerForm({ ...serverForm, port: e.target.value })}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+                          placeholder="27015"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-300 mb-2">RCON пароль *</label>
+                        <input
+                          type="text"
+                          value={serverForm.rconPassword}
+                          onChange={(e) => setServerForm({ ...serverForm, rconPassword: e.target.value })}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+                          placeholder="rcon_password"
+                          required
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-gray-300 mb-2">Internal IP (для Docker)</label>
+                        <input
+                          type="text"
+                          value={serverForm.internalIp}
+                          onChange={(e) => setServerForm({ ...serverForm, internalIp: e.target.value })}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+                          placeholder="172.18.0.2 (опционально)"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors"
+                      >
+                        {isLoading ? 'Сохранение...' : editingServer ? 'Сохранить' : 'Добавить'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowServerForm(false);
+                          setEditingServer(null);
+                          setServerForm({ name: '', ip: '', port: '', rconPassword: '', internalIp: '' });
+                        }}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition-colors"
+                      >
+                        Отмена
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Список серверов */}
+                {servers.length === 0 ? (
+                  <div className="bg-gray-800 rounded-lg p-8 text-center text-gray-400">
+                    Нет серверов. Добавьте первый сервер.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {servers.map((server) => (
+                      <div key={server.id} className="bg-gray-800 rounded-lg p-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex-grow">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-lg font-bold text-white">{server.name}</h3>
+                              <span
+                                className={`px-2 py-1 rounded text-xs font-bold ${
+                                  server.status === 'IDLE'
+                                    ? 'bg-green-900/50 text-green-400'
+                                    : server.status === 'IN_GAME'
+                                    ? 'bg-blue-900/50 text-blue-400'
+                                    : 'bg-red-900/50 text-red-400'
+                                }`}
+                              >
+                                {server.status}
+                              </span>
+                            </div>
+                            <div className="text-gray-400 text-sm space-y-1">
+                              <div>
+                                <span className="text-gray-500">Адрес:</span>{' '}
+                                <span className="text-white font-mono">{server.ip}:{server.port}</span>
+                              </div>
+                              {server.internal_ip && (
+                                <div>
+                                  <span className="text-gray-500">Internal IP:</span>{' '}
+                                  <span className="text-gray-300 font-mono">{server.internal_ip}</span>
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-gray-500">RCON:</span>{' '}
+                                <span className="text-gray-300 font-mono">{server.rcon_password}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            {server.status === 'OFFLINE' ? (
+                              <button
+                                onClick={() => handleSetServerOnline(server.id)}
+                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                              >
+                                Включить
+                              </button>
+                            ) : server.status === 'IDLE' ? (
+                              <button
+                                onClick={() => handleSetServerOffline(server.id)}
+                                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                              >
+                                Выключить
+                              </button>
+                            ) : null}
+                            <button
+                              onClick={() => startEditServer(server)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                            >
+                              Редактировать
+                            </button>
+                            <button
+                              onClick={() => handleDeleteServer(server.id)}
+                              disabled={server.status === 'IN_GAME'}
+                              className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white px-3 py-1 rounded text-sm"
+                            >
+                              Удалить
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>

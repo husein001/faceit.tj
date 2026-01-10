@@ -7,7 +7,15 @@ import {
   rejectRequest,
   getRequestStats,
 } from '../models/premium.model';
-import { getAllServers } from '../models/server.model';
+import {
+  getAllServers,
+  createServer,
+  updateServer,
+  deleteServer,
+  findServerById,
+  setServerOnline,
+  setServerOffline,
+} from '../models/server.model';
 import { getActiveMatches } from '../models/match.model';
 import { query } from '../config/database';
 
@@ -169,6 +177,8 @@ router.post('/premium-requests/:id/reject', adminAuthMiddleware, async (req: Adm
   }
 });
 
+// ============ СЕРВЕРЫ ============
+
 // Список серверов
 router.get('/servers', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
   try {
@@ -176,6 +186,131 @@ router.get('/servers', adminAuthMiddleware, async (req: AdminRequest, res: Respo
     res.json(servers);
   } catch (error) {
     console.error('Ошибка получения серверов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Добавить сервер
+router.post('/servers', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
+  try {
+    const { name, ip, port, rconPassword, internalIp } = req.body;
+
+    if (!name || !ip || !port || !rconPassword) {
+      res.status(400).json({ error: 'Заполните все обязательные поля: name, ip, port, rconPassword' });
+      return;
+    }
+
+    const server = await createServer(name, ip, parseInt(port), rconPassword, internalIp);
+
+    res.json({
+      success: true,
+      message: 'Сервер добавлен',
+      server,
+    });
+  } catch (error: any) {
+    console.error('Ошибка добавления сервера:', error);
+    res.status(500).json({ error: error.message || 'Ошибка сервера' });
+  }
+});
+
+// Обновить сервер
+router.put('/servers/:id', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name, ip, port, rconPassword, internalIp } = req.body;
+
+    const server = await updateServer(id, {
+      name,
+      ip,
+      port: port ? parseInt(port) : undefined,
+      rconPassword,
+      internalIp,
+    });
+
+    if (!server) {
+      res.status(404).json({ error: 'Сервер не найден' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Сервер обновлён',
+      server,
+    });
+  } catch (error: any) {
+    console.error('Ошибка обновления сервера:', error);
+    res.status(500).json({ error: error.message || 'Ошибка сервера' });
+  }
+});
+
+// Удалить сервер
+router.delete('/servers/:id', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const server = await findServerById(id);
+    if (!server) {
+      res.status(404).json({ error: 'Сервер не найден' });
+      return;
+    }
+
+    if (server.status === 'IN_GAME') {
+      res.status(400).json({ error: 'Нельзя удалить сервер во время игры' });
+      return;
+    }
+
+    await deleteServer(id);
+
+    res.json({
+      success: true,
+      message: 'Сервер удалён',
+    });
+  } catch (error: any) {
+    console.error('Ошибка удаления сервера:', error);
+    res.status(500).json({ error: error.message || 'Ошибка сервера' });
+  }
+});
+
+// Включить сервер (IDLE)
+router.post('/servers/:id/online', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const server = await setServerOnline(id);
+
+    if (!server) {
+      res.status(404).json({ error: 'Сервер не найден' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Сервер включён',
+      server,
+    });
+  } catch (error) {
+    console.error('Ошибка:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Выключить сервер (OFFLINE)
+router.post('/servers/:id/offline', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const server = await setServerOffline(id);
+
+    if (!server) {
+      res.status(404).json({ error: 'Сервер не найден' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Сервер выключён',
+      server,
+    });
+  } catch (error) {
+    console.error('Ошибка:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

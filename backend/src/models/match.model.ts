@@ -8,13 +8,13 @@ export async function createMatch(
   createdBy?: string,
   lobbyCode?: string
 ): Promise<Match> {
+  // Время жизни лобби для сбора игроков (только для отображения на UI)
   const lobbyExpiresAt = matchType === 'custom'
-    ? new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+    ? new Date(Date.now() + 30 * 60 * 1000) // 30 минут на сбор
     : null;
 
-  const reservedUntil = matchType === 'custom'
-    ? new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 hours
-    : null;
+  // Сервер не резервируется по времени - используется пока игра не закончится
+  const reservedUntil = null;
 
   const rows = await query<Match>(
     `INSERT INTO matches (server_id, match_type, map, created_by, lobby_code, lobby_expires_at, reserved_until)

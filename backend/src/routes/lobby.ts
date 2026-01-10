@@ -16,11 +16,8 @@ import {
 } from '../models/match.model';
 import { isValidMap, generateGet5Config } from '../services/get5.service';
 import { loadGet5Match } from '../services/server.service';
-import { balanceTeams } from '../services/balance.service';
 import { io } from '../index';
 import { MapName } from '../types';
-import { replenishPool } from '../workers/server-pool.worker';
-import { serverProvisioner } from '../services/game-server';
 
 const router = Router();
 
@@ -43,22 +40,12 @@ router.post('/create', authMiddleware, premiumMiddleware, async (req: AuthReques
       return;
     }
 
-    // Find an idle server or provision new one
-    let server = await findIdleServer();
+    // Найти свободный сервер (админ должен добавить серверы через админку)
+    const server = await findIdleServer();
 
     if (!server) {
-      // Автоматически создать новый сервер
-      console.log('No idle servers, provisioning new one...');
-      const result = await serverProvisioner.provision({ name: `Faceit.TJ Server`, ip: '', port: 0, rconPassword: '' });
-      if (!result.success || !result.serverId) {
-        res.status(503).json({ error: 'No servers available and failed to provision new one' });
-        return;
-      }
-      server = await findServerById(result.serverId);
-      if (!server) {
-        res.status(503).json({ error: 'Server provisioned but not found' });
-        return;
-      }
+      res.status(503).json({ error: 'Нет свободных серверов. Попробуйте позже.' });
+      return;
     }
 
     // Generate unique lobby code
@@ -74,11 +61,8 @@ router.post('/create', authMiddleware, premiumMiddleware, async (req: AuthReques
     // Create the match/lobby
     const match = await createMatch(server.id, 'custom', map, userId, lobbyCode);
 
-    // Reserve the server and set to IN_GAME (сервер сразу готов к подключению)
-    await updateServerStatus(server.id, 'IN_GAME', match.id, match.reserved_until);
-
-    // Пополнить пул серверов в фоне (не блокирует ответ)
-    replenishPool();
+    // Пометить сервер как занятый (IN_GAME)
+    await updateServerStatus(server.id, 'IN_GAME', match.id);
 
     // Add host as first player (team 1 by default)
     await addMatchPlayer(match.id, userId, 1);
