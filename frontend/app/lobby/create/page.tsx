@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { lobbyApi } from '@/lib/api';
+import { lobbyApi, premiumApi } from '@/lib/api';
 import { getSteamLoginUrl } from '@/lib/auth';
 
 const MAPS = [
@@ -22,9 +22,17 @@ export default function CreateLobbyPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [steamLoginUrl, setSteamLoginUrl] = useState('#');
+  const [premiumEnabled, setPremiumEnabled] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   useEffect(() => {
     setSteamLoginUrl(getSteamLoginUrl());
+    // Проверяем включен ли премиум
+    premiumApi.getInfo().then((info) => {
+      setPremiumEnabled(info.enabled);
+    }).catch(() => {}).finally(() => {
+      setIsLoadingSettings(false);
+    });
   }, []);
 
   const handleCreateLobby = async () => {
@@ -61,7 +69,17 @@ export default function CreateLobbyPage() {
     );
   }
 
-  if (!user?.isPremium) {
+  // Показываем загрузку пока проверяем настройки
+  if (isLoadingSettings) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Требуем премиум только если он включен в настройках
+  if (premiumEnabled && !user?.isPremium) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="glass-panel rounded-2xl p-8 max-w-md w-full text-center">

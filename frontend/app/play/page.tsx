@@ -306,27 +306,6 @@ export default function PlayPage() {
                 <p className="text-danger text-sm">{error}</p>
               </div>
             )}
-
-            {/* Premium Lobby Link */}
-            {isAuthenticated && user?.isPremium && (
-              <a
-                href="/lobby/create"
-                className="glass-panel rounded-xl p-4 flex items-center gap-4 hover:border-primary/50 transition-all group"
-              >
-                <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary">workspace_premium</span>
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-white group-hover:text-primary transition-colors">
-                    Создать кастомное лобби
-                  </h4>
-                  <p className="text-xs text-gray-400">Премиум функция</p>
-                </div>
-                <span className="material-symbols-outlined text-gray-500 group-hover:text-primary transition-colors">
-                  arrow_forward
-                </span>
-              </a>
-            )}
           </div>
         </div>
       </div>
