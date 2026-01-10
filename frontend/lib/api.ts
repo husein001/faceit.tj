@@ -114,4 +114,9 @@ export const adminApi = {
   getMatches: (token: string) => request<any>('/api/admin/matches', { token }),
   getUsers: (token: string, limit?: number) =>
     request<any>(`/api/admin/users${limit ? `?limit=${limit}` : ''}`, { token }),
+  // Premium settings
+  getPremiumSettings: (token: string) =>
+    request<{ enabled: boolean; price: number; currency: string; duration_days: number }>('/api/admin/settings/premium', { token }),
+  updatePremiumSettings: (token: string, data: { enabled: boolean; price: number; currency: string; duration_days: number }) =>
+    request<any>('/api/admin/settings/premium', { method: 'PUT', token, body: data }),
 };

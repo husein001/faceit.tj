@@ -18,6 +18,7 @@ import {
 } from '../models/server.model';
 import { getActiveMatches } from '../models/match.model';
 import { query } from '../config/database';
+import { getPremiumSettings, savePremiumSettings } from '../models/settings.model';
 
 const router = Router();
 
@@ -338,6 +339,44 @@ router.get('/users', adminAuthMiddleware, async (req: AdminRequest, res: Respons
     res.json(users);
   } catch (error) {
     console.error('Ошибка получения пользователей:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ============ НАСТРОЙКИ ПРЕМИУМА ============
+
+// Получить настройки премиума
+router.get('/settings/premium', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
+  try {
+    const settings = await getPremiumSettings();
+    res.json(settings);
+  } catch (error) {
+    console.error('Ошибка получения настроек:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Сохранить настройки премиума
+router.put('/settings/premium', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
+  try {
+    const { enabled, price, currency, duration_days } = req.body;
+
+    const settings = {
+      enabled: Boolean(enabled),
+      price: Number(price) || 10,
+      currency: currency || 'сомони',
+      duration_days: Number(duration_days) || 30,
+    };
+
+    await savePremiumSettings(settings);
+
+    res.json({
+      success: true,
+      message: enabled ? 'Премиум включён' : 'Премиум выключен',
+      settings,
+    });
+  } catch (error) {
+    console.error('Ошибка сохранения настроек:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });

@@ -58,7 +58,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'stats' | 'servers'>('servers');
+  const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'stats' | 'servers' | 'settings'>('servers');
   const [stats, setStats] = useState<Stats | null>(null);
   const [pendingRequests, setPendingRequests] = useState<PremiumRequest[]>([]);
   const [allRequests, setAllRequests] = useState<PremiumRequest[]>([]);
@@ -68,6 +68,15 @@ export default function AdminPage() {
 
   // Серверы
   const [servers, setServers] = useState<Server[]>([]);
+
+  // Настройки премиума
+  const [premiumSettings, setPremiumSettings] = useState({
+    enabled: false,
+    price: 10,
+    currency: 'сомони',
+    duration_days: 30,
+  });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [showServerForm, setShowServerForm] = useState(false);
   const [editingServer, setEditingServer] = useState<Server | null>(null);
   const [serverForm, setServerForm] = useState({
@@ -138,6 +147,9 @@ export default function AdminPage() {
       } else if (activeTab === 'servers') {
         const serversData = await adminApi.getServers(token);
         setServers(serversData);
+      } else if (activeTab === 'settings') {
+        const settings = await adminApi.getPremiumSettings(token);
+        setPremiumSettings(settings);
       } else {
         const requests = await adminApi.getAllRequests(token, 50);
         setAllRequests(requests);
@@ -146,6 +158,18 @@ export default function AdminPage() {
       console.error('Ошибка загрузки данных:', err);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleSavePremiumSettings() {
+    setIsSavingSettings(true);
+    try {
+      await adminApi.updatePremiumSettings(token, premiumSettings);
+      alert(premiumSettings.enabled ? 'Премиум включён' : 'Премиум выключен');
+    } catch (err: any) {
+      alert(err.message || 'Ошибка сохранения настроек');
+    } finally {
+      setIsSavingSettings(false);
     }
   }
 
@@ -392,6 +416,16 @@ export default function AdminPage() {
           >
             Статистика
           </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'settings'
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Настройки
+          </button>
         </div>
 
         {/* Контент */}
@@ -487,6 +521,91 @@ export default function AdminPage() {
                       <span className="text-gray-500 font-bold">{stats.users.total - stats.users.premium}</span>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Настройки */}
+            {activeTab === 'settings' && (
+              <div className="max-w-2xl">
+                <div className="bg-gray-800 rounded-lg p-6">
+                  <h3 className="text-xl font-bold text-white mb-6">Настройки премиума</h3>
+
+                  {/* Вкл/Выкл премиума */}
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+                      <div>
+                        <div className="text-white font-semibold">Требовать премиум подписку</div>
+                        <div className="text-gray-400 text-sm mt-1">
+                          Если выключено - приватные лобби доступны всем бесплатно
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setPremiumSettings({ ...premiumSettings, enabled: !premiumSettings.enabled })}
+                        className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                          premiumSettings.enabled ? 'bg-orange-500' : 'bg-gray-600'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                            premiumSettings.enabled ? 'translate-x-7' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Статус */}
+                    <div className={`mt-3 p-3 rounded-lg text-center ${
+                      premiumSettings.enabled
+                        ? 'bg-orange-900/30 border border-orange-500 text-orange-400'
+                        : 'bg-green-900/30 border border-green-500 text-green-400'
+                    }`}>
+                      {premiumSettings.enabled
+                        ? 'Премиум ВКЛЮЧЁН - для приватных лобби нужна подписка'
+                        : 'Премиум ВЫКЛЮЧЕН - приватные лобби доступны всем'}
+                    </div>
+                  </div>
+
+                  {/* Цена и срок */}
+                  <div className="grid md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <label className="block text-gray-300 mb-2">Цена подписки</label>
+                      <div className="flex">
+                        <input
+                          type="number"
+                          value={premiumSettings.price}
+                          onChange={(e) => setPremiumSettings({ ...premiumSettings, price: Number(e.target.value) })}
+                          className="flex-1 bg-gray-700 border border-gray-600 rounded-l-lg px-4 py-2 text-white"
+                          min="0"
+                        />
+                        <input
+                          type="text"
+                          value={premiumSettings.currency}
+                          onChange={(e) => setPremiumSettings({ ...premiumSettings, currency: e.target.value })}
+                          className="w-24 bg-gray-600 border border-gray-600 rounded-r-lg px-3 py-2 text-white text-center"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 mb-2">Срок подписки (дней)</label>
+                      <input
+                        type="number"
+                        value={premiumSettings.duration_days}
+                        onChange={(e) => setPremiumSettings({ ...premiumSettings, duration_days: Number(e.target.value) })}
+                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white"
+                        min="1"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Кнопка сохранить */}
+                  <button
+                    onClick={handleSavePremiumSettings}
+                    disabled={isSavingSettings}
+                    className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-600 text-white font-bold py-3 rounded-lg transition-colors"
+                  >
+                    {isSavingSettings ? 'Сохранение...' : 'Сохранить настройки'}
+                  </button>
                 </div>
               </div>
             )}

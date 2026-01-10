@@ -5,15 +5,19 @@ import {
   getUserPendingRequest,
 } from '../models/premium.model';
 import { findUserById } from '../models/user.model';
+import { getPremiumSettings } from '../models/settings.model';
 
 const router = Router();
 
 // Информация о премиуме
-router.get('/info', (req, res) => {
+router.get('/info', async (req, res) => {
+  const settings = await getPremiumSettings();
+
   res.json({
-    price: 10,
-    currency: 'сомони',
-    duration: '30 дней',
+    enabled: settings.enabled,
+    price: settings.price,
+    currency: settings.currency,
+    duration: `${settings.duration_days} дней`,
     phone: '+992 XXX XXX XXX', // Номер для оплаты
     features: [
       'Создание кастомных лобби',
