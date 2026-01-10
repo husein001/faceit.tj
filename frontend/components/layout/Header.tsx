@@ -46,15 +46,18 @@ export default function Header() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="/play" className="text-sm font-medium text-gray-300 hover:text-primary transition-colors">
+          <nav className="hidden md:flex items-center gap-6">
+            <Link href="/play" className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-primary transition-colors">
+              <span className="material-symbols-outlined text-lg">sports_esports</span>
               НАЙТИ ИГРУ
             </Link>
-            <Link href="/lobby/create" className="text-sm font-medium text-gray-300 hover:text-primary transition-colors">
+            <Link href="/lobby/create" className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-primary transition-colors">
+              <span className="material-symbols-outlined text-lg">add_circle</span>
               СОЗДАТЬ ЛОББИ
             </Link>
             {premiumEnabled && (
-              <Link href="/premium" className="text-sm font-medium text-primary drop-shadow-[0_0_8px_rgba(0,217,255,0.4)]">
+              <Link href="/premium" className="flex items-center gap-2 text-sm font-medium text-primary drop-shadow-[0_0_8px_rgba(0,217,255,0.4)]">
+                <span className="material-symbols-outlined text-lg">workspace_premium</span>
                 ПРЕМИУМ
               </Link>
             )}
