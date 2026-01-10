@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { matchesApi } from '@/lib/api';
 import { getSteamLoginUrl } from '@/lib/auth';
@@ -14,10 +15,23 @@ interface MatchHistoryItem {
   endedAt: string;
 }
 
+interface ActiveMatch {
+  id: string;
+  lobbyCode: string | null;
+  matchType: string;
+  status: string;
+  map: string;
+  createdAt: string;
+  isHost: boolean;
+  playerCount: number;
+}
+
 export default function ProfilePage() {
   const { user, token, isAuthenticated, isLoading } = useAuth();
   const [matchHistory, setMatchHistory] = useState<MatchHistoryItem[]>([]);
+  const [activeMatches, setActiveMatches] = useState<ActiveMatch[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [activeLoading, setActiveLoading] = useState(true);
   const [steamLoginUrl, setSteamLoginUrl] = useState('#');
 
   useEffect(() => {
@@ -25,8 +39,19 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    const fetchHistory = async () => {
+    const fetchData = async () => {
       if (!token) return;
+
+      // Fetch active matches
+      try {
+        const active = await matchesApi.getMyActive(token);
+        setActiveMatches(active);
+      } catch (err) {
+        console.error('Failed to fetch active matches:', err);
+      }
+      setActiveLoading(false);
+
+      // Fetch history
       try {
         const history = await matchesApi.getHistory(token, 10);
         setMatchHistory(history);
@@ -37,7 +62,7 @@ export default function ProfilePage() {
     };
 
     if (isAuthenticated) {
-      fetchHistory();
+      fetchData();
     }
   }, [token, isAuthenticated]);
 
@@ -110,6 +135,63 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Active Matches */}
+        {(activeLoading || activeMatches.length > 0) && (
+          <div className="glass-panel rounded-2xl p-6 mb-6">
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-green-400">pending</span>
+              Активные матчи
+            </h2>
+
+            {activeLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activeMatches.map((match) => (
+                  <Link
+                    key={match.id}
+                    href={match.lobbyCode ? `/lobby/${match.lobbyCode}` : '#'}
+                    className="flex items-center justify-between bg-background-dark rounded-lg p-4 border border-green-500/20 hover:border-green-500/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-12 rounded bg-gradient-to-br from-green-900/30 to-green-700/10 flex items-center justify-center border border-green-500/30">
+                        <span className="text-xs font-bold text-green-400 uppercase">
+                          {match.map.replace('de_', '')}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-white">
+                            {match.lobbyCode ? `Лобби #${match.lobbyCode}` : 'Матч'}
+                          </p>
+                          {match.isHost && (
+                            <span className="material-symbols-outlined text-yellow-500 text-sm">crown</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          {match.status === 'waiting' ? 'Ожидание игроков' : 'В игре'} • {match.playerCount} игрок(ов)
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        match.status === 'live'
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                      }`}>
+                        {match.status === 'live' ? 'LIVE' : 'WAITING'}
+                      </span>
+                      <span className="material-symbols-outlined text-gray-500">chevron_right</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Match History */}
         <div className="glass-panel rounded-2xl p-6">

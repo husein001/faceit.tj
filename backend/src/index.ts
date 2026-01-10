@@ -60,6 +60,7 @@ import statsRoutes from './routes/stats';
 import { startMatchmakerWorker } from './workers/matchmaker.worker';
 import { startServerHealthWorker } from './workers/server-health.worker';
 import { startLobbyTimeoutWorker } from './workers/lobby-timeout.worker';
+import { startMatchCleanupWorker } from './workers/match-cleanup.worker';
 // Авто-скалирование отключено - серверы добавляются админом вручную
 // import { startServerScalerWorker } from './workers/server-scaler.worker';
 // import { startServerPoolWorker } from './workers/server-pool.worker';
@@ -136,6 +137,7 @@ async function startServer() {
   startMatchmakerWorker();
   startServerHealthWorker();
   startLobbyTimeoutWorker();
+  startMatchCleanupWorker();
   // Авто-скалирование отключено - серверы добавляются админом вручную
   // startServerPoolWorker();
 

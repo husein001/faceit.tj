@@ -48,18 +48,27 @@ async function checkExpiredLobbies(): Promise<void> {
 
       console.log(`Lobby ${lobby.lobby_code} expired with only ${playerCount} player(s), cancelling...`);
 
-      // Если сервер был назначен - очистить через RCON
+      // Release server in DB FIRST (не ждём RCON)
       if (lobby.server_id) {
-        try {
-          const { gameServerManager } = await import('../services/game-server');
-          await gameServerManager.executeRcon(lobby.server_id, 'sv_password ""');
-          await gameServerManager.executeRcon(lobby.server_id, 'kickall');
-        } catch (err) {
-          console.error('Failed to cleanup server via RCON:', err);
-        }
-
-        // Release server - SET TO IDLE
         await updateServerStatus(lobby.server_id, 'IDLE');
+
+        // RCON cleanup async (не блокируем воркер)
+        const serverId = lobby.server_id;
+        (async () => {
+          try {
+            const { gameServerManager } = await import('../services/game-server');
+            await Promise.race([
+              gameServerManager.executeRcon(serverId, 'sv_password ""'),
+              new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
+            ]);
+            await Promise.race([
+              gameServerManager.executeRcon(serverId, 'kickall'),
+              new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
+            ]);
+          } catch (err) {
+            console.error('Failed to cleanup server via RCON:', err);
+          }
+        })();
       }
 
       // Update match status

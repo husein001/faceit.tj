@@ -101,6 +101,20 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// Get user's active matches (waiting/live)
+router.get('/my-active', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { getUserActiveMatches } = await import('../models/match.model');
+    const matches = await getUserActiveMatches(userId);
+
+    res.json(matches);
+  } catch (error) {
+    console.error('Error getting active matches:', error);
+    res.status(500).json({ error: 'Failed to get active matches' });
+  }
+});
+
 // Get user match history
 router.get('/history', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {

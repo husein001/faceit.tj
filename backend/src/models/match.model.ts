@@ -193,3 +193,44 @@ export function generateLobbyCode(): string {
   }
   return code;
 }
+
+export async function getUserActiveMatches(userId: string): Promise<{
+  id: string;
+  lobbyCode: string | null;
+  matchType: string;
+  status: string;
+  map: string;
+  createdAt: string;
+  isHost: boolean;
+  playerCount: number;
+}[]> {
+  const matches = await query<{
+    id: string;
+    lobby_code: string | null;
+    match_type: string;
+    status: string;
+    map: string;
+    created_at: string;
+    created_by: string | null;
+    player_count: string;
+  }>(
+    `SELECT m.id, m.lobby_code, m.match_type, m.status, m.map, m.created_at, m.created_by,
+            (SELECT COUNT(*) FROM match_players WHERE match_id = m.id) as player_count
+     FROM matches m
+     JOIN match_players mp ON m.id = mp.match_id
+     WHERE mp.user_id = $1 AND m.status IN ('waiting', 'live')
+     ORDER BY m.created_at DESC`,
+    [userId]
+  );
+
+  return matches.map(m => ({
+    id: m.id,
+    lobbyCode: m.lobby_code,
+    matchType: m.match_type,
+    status: m.status,
+    map: m.map,
+    createdAt: m.created_at,
+    isHost: m.created_by === userId,
+    playerCount: parseInt(m.player_count, 10),
+  }));
+}

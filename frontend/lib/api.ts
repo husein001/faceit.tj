@@ -64,6 +64,7 @@ export const lobbyApi = {
 export const matchesApi = {
   get: (id: string, token?: string) => request<any>(`/api/matches/${id}`, { token }),
   getActive: () => request<any>('/api/matches'),
+  getMyActive: (token: string) => request<any>('/api/matches/my-active', { token }),
   getHistory: (token: string, limit?: number) =>
     request<any>(`/api/matches/history${limit ? `?limit=${limit}` : ''}`, { token }),
 };

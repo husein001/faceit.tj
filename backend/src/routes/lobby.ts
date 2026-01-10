@@ -303,47 +303,52 @@ router.post('/:code/start', authMiddleware, async (req: AuthRequest, res: Respon
       return;
     }
 
-    // Назначить сервер матчу
+    // Назначить сервер матчу и обновить статусы В ПЕРВУЮ ОЧЕРЕДЬ
     await assignServerToMatch(match.id, server.id);
     await updateServerStatus(server.id, 'IN_GAME', match.id);
-
-    // Настроить сервер: карта + пароль
-    const serverPassword = match.lobby_code?.toLowerCase() || '';
-    try {
-      const { gameServerManager } = await import('../services/game-server');
-      // Сменить карту
-      await gameServerManager.executeRcon(server.id, `changelevel ${match.map}`);
-      // Подождать загрузки карты
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      // Установить пароль
-      await gameServerManager.executeRcon(server.id, `sv_password "${serverPassword}"`);
-      console.log(`Server configured: map=${match.map}, password set`);
-    } catch (err) {
-      console.error('Failed to configure server:', err);
-    }
-
-    // Get user details for config
-    const { getUsersByIds } = await import('../models/user.model');
-    const userIds = data.players.map(p => p.user_id);
-    const users = await getUsersByIds(userIds);
-
-    // Split users by team
-    const team1Users = users.filter(u => data.players.find(p => p.user_id === u.id && p.team === 1));
-    const team2Users = users.filter(u => data.players.find(p => p.user_id === u.id && p.team === 2));
-
-    // Generate Get5 config
-    const config = generateGet5Config(match.id, team1Users, team2Users, match.map as MapName);
-
-    // Load match on server
-    const configUrl = `${process.env.API_URL}/api/matches/${match.id}/config`;
-    await loadGet5Match(server.id, configUrl);
-
-    // Update match status
     await updateMatchStatus(match.id, 'live');
 
-    // Notify all players
+    const serverPassword = match.lobby_code?.toLowerCase() || '';
     const connectCommand = `connect ${server.ip}:${server.port}; password ${serverPassword}`;
 
+    // Настроить сервер АСИНХРОННО (не блокируем ответ)
+    (async () => {
+      try {
+        const { gameServerManager } = await import('../services/game-server');
+
+        // Сменить карту (с таймаутом)
+        const mapResult = await Promise.race([
+          gameServerManager.executeRcon(server.id, `changelevel ${match.map}`),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('RCON timeout')), 10000))
+        ]);
+        console.log('Map change result:', mapResult);
+
+        // Подождать загрузки карты
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        // Установить пароль
+        const pwResult = await Promise.race([
+          gameServerManager.executeRcon(server.id, `sv_password "${serverPassword}"`),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('RCON timeout')), 5000))
+        ]);
+        console.log('Password set result:', pwResult);
+
+        // Get5 конфиг (опционально)
+        try {
+          const configUrl = `${process.env.API_URL}/api/matches/${match.id}/config`;
+          await loadGet5Match(server.id, configUrl);
+          console.log('Get5 config loaded');
+        } catch (e) {
+          console.error('Get5 load failed (non-critical):', e);
+        }
+
+        console.log(`Server ${server.id} configured: map=${match.map}, password set`);
+      } catch (err) {
+        console.error('Failed to configure server (non-blocking):', err);
+      }
+    })();
+
+    // Notify all players
     io.to(`lobby:${match.id}`).emit('lobby_started', {
       matchId: match.id,
       connectCommand,
@@ -393,31 +398,20 @@ router.delete('/:code/cancel', authMiddleware, async (req: AuthRequest, res: Res
       return;
     }
 
-    // Update match status
+    // Update match status FIRST
     await updateMatchStatus(match.id, 'cancelled');
 
-    // Если сервер был назначен - очистить и освободить
+    // Release server in DB IMMEDIATELY
     if (match.server_id) {
-      try {
-        const { gameServerManager } = await import('../services/game-server');
-        await gameServerManager.executeRcon(match.server_id, 'sv_password ""');
-        await gameServerManager.executeRcon(match.server_id, 'kickall');
-      } catch (err) {
-        console.error('Failed to cleanup server:', err);
-      }
-
-      // Release server
       await updateServerStatus(match.server_id, 'IDLE');
     }
 
     // Clear active_lobby у ВСЕХ игроков в лобби
     const players = await getMatchPlayers(match.id);
-    for (const player of players) {
-      await setUserActiveLobby(player.user_id, null);
-    }
-
-    // Clear host's active lobby (на случай если он не в списке игроков)
-    await setUserActiveLobby(userId, null);
+    await Promise.all([
+      ...players.map(player => setUserActiveLobby(player.user_id, null)),
+      setUserActiveLobby(userId, null), // Host тоже
+    ]);
 
     // Notify all players
     io.to(`lobby:${match.id}`).emit('lobby_cancelled', {
@@ -425,7 +419,29 @@ router.delete('/:code/cancel', authMiddleware, async (req: AuthRequest, res: Res
       reason: 'Host cancelled the lobby',
     });
 
+    // Send response BEFORE RCON cleanup
     res.json({ success: true });
+
+    // Cleanup server ASYNC (не блокируем ответ)
+    if (match.server_id) {
+      const serverId = match.server_id;
+      (async () => {
+        try {
+          const { gameServerManager } = await import('../services/game-server');
+          await Promise.race([
+            gameServerManager.executeRcon(serverId, 'sv_password ""'),
+            new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
+          ]);
+          await Promise.race([
+            gameServerManager.executeRcon(serverId, 'kickall'),
+            new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
+          ]);
+          console.log(`Server ${serverId} cleaned up after cancel`);
+        } catch (err) {
+          console.error('Failed to cleanup server (non-blocking):', err);
+        }
+      })();
+    }
   } catch (error) {
     console.error('Error cancelling lobby:', error);
     res.status(500).json({ error: 'Failed to cancel lobby' });
