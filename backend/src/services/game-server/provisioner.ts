@@ -83,8 +83,8 @@ class ServerProvisioner extends EventEmitter {
       // Проверить образ
       await this.ensureImage();
 
-      // Создать общий volume для CS2 данных (скачивается один раз)
-      await this.ensureSharedVolume();
+      // Создать template volume для CS2 (скачивается один раз, копируется для каждого сервера)
+      await this.ensureTemplateVolume();
 
       this.isInitialized = true;
       this.emit('provisioner:initialized');
@@ -121,35 +121,66 @@ class ServerProvisioner extends EventEmitter {
     }
   }
 
-  private async ensureSharedVolume(): Promise<void> {
-    const volumeName = 'cs2-shared-data';
+  private async ensureTemplateVolume(): Promise<void> {
+    const templateVolume = 'cs2-template';
     try {
-      await execAsync(`docker volume inspect ${volumeName}`);
-      console.log(`Shared volume ${volumeName} exists`);
+      await execAsync(`docker volume inspect ${templateVolume}`);
+      console.log(`Template volume ${templateVolume} exists`);
     } catch {
-      console.log(`Creating shared volume ${volumeName}...`);
-      await execAsync(`docker volume create ${volumeName}`);
-      console.log(`Shared volume ${volumeName} created`);
+      console.log(`Creating template volume ${templateVolume}...`);
+      await execAsync(`docker volume create ${templateVolume}`);
+      console.log(`Template volume ${templateVolume} created`);
     }
   }
 
   private async isCs2Installed(): Promise<boolean> {
     try {
-      // Проверяем наличие основного исполняемого файла CS2 в shared volume
+      // Проверяем наличие CS2 в template volume
       const { stdout } = await execAsync(
-        `docker run --rm -v cs2-shared-data:/data alpine ls -la /data/game/bin/linuxsteamrt64/cs2 2>/dev/null || echo "not_found"`
+        `docker run --rm -v cs2-template:/data alpine ls /data/game/bin/linuxsteamrt64/cs2 2>/dev/null || echo "not_found"`
       );
-      return !stdout.includes('not_found') && stdout.includes('cs2');
+      return !stdout.includes('not_found');
     } catch {
       return false;
     }
   }
 
+  private async createServerVolume(port: number): Promise<string> {
+    const volumeName = `cs2-server-${port}`;
+
+    try {
+      // Проверить существует ли уже volume для этого порта
+      await execAsync(`docker volume inspect ${volumeName}`);
+      console.log(`Volume ${volumeName} already exists`);
+      return volumeName;
+    } catch {
+      // Volume не существует, создаём и копируем из template
+    }
+
+    const cs2Installed = await this.isCs2Installed();
+
+    if (cs2Installed) {
+      // Копируем из template (быстро, ~2-3 минуты)
+      console.log(`Creating ${volumeName} by copying from cs2-template...`);
+      await execAsync(`docker volume create ${volumeName}`);
+      await execAsync(
+        `docker run --rm -v cs2-template:/source:ro -v ${volumeName}:/dest alpine sh -c "cp -a /source/. /dest/"`
+      );
+      console.log(`Volume ${volumeName} created from template`);
+    } else {
+      // Template пустой, создаём пустой volume (CS2 скачается при первом запуске)
+      console.log(`Creating empty ${volumeName} (CS2 will download on first start)...`);
+      await execAsync(`docker volume create ${volumeName}`);
+    }
+
+    return volumeName;
+  }
+
   async preloadCs2(): Promise<void> {
-    console.log('Pre-loading CS2 to shared volume...');
+    console.log('Pre-loading CS2 to template volume...');
     const isInstalled = await this.isCs2Installed();
     if (isInstalled) {
-      console.log('CS2 already installed in shared volume');
+      console.log('CS2 already installed in template volume');
       return;
     }
 
@@ -157,14 +188,12 @@ class ServerProvisioner extends EventEmitter {
     const preloadContainer = 'cs2-preload';
 
     try {
-      // Удалить старый контейнер если есть
       await execAsync(`docker rm -f ${preloadContainer} 2>/dev/null`).catch(() => {});
 
-      // Запустить контейнер для загрузки CS2
       const cmd = [
         'docker run -d',
         `--name ${preloadContainer}`,
-        `-v cs2-shared-data:/home/steam/cs2-dedicated`,
+        `-v cs2-template:/home/steam/cs2-dedicated`,
         `-e SRCDS_TOKEN=${this.config.gsltToken}`,
         `-e CS2_PORT=27015`,
         this.config.image,
@@ -173,18 +202,35 @@ class ServerProvisioner extends EventEmitter {
       await execAsync(cmd);
       console.log('Preload container started, waiting for CS2 download...');
 
-      // Ждём завершения загрузки (до 60 минут)
       await this.waitForContainer(preloadContainer, 3600000);
 
-      // Останавливаем preload контейнер
       await execAsync(`docker stop ${preloadContainer}`);
       await execAsync(`docker rm ${preloadContainer}`);
 
-      console.log('CS2 pre-loaded successfully');
+      console.log('CS2 pre-loaded to template successfully');
     } catch (error) {
       console.error('Failed to preload CS2:', error);
-      // Очистка
       await execAsync(`docker rm -f ${preloadContainer} 2>/dev/null`).catch(() => {});
+    }
+  }
+
+  async migrateExistingVolume(oldVolumeName: string): Promise<void> {
+    const isInstalled = await this.isCs2Installed();
+    if (isInstalled) {
+      console.log('Template already has CS2, skipping migration');
+      return;
+    }
+
+    console.log(`Migrating ${oldVolumeName} to cs2-template...`);
+    try {
+      await execAsync(`docker volume inspect ${oldVolumeName}`);
+      await execAsync(`docker volume create cs2-template 2>/dev/null || true`);
+      await execAsync(
+        `docker run --rm -v ${oldVolumeName}:/source:ro -v cs2-template:/dest alpine sh -c "cp -a /source/. /dest/"`
+      );
+      console.log('Migration completed successfully');
+    } catch (error) {
+      console.error('Migration failed:', error);
     }
   }
 
@@ -228,21 +274,25 @@ class ServerProvisioner extends EventEmitter {
         // Игнорируем ошибку если контейнера нет
       }
 
+      // Создать volume для этого сервера (копирует из template если CS2 установлен)
+      const volumeName = await this.createServerVolume(port);
+
       // Создать и запустить контейнер
       const dockerCmd = this.buildDockerCommand({
         containerName,
         port,
         rconPassword,
         serverPassword,
+        volumeName,
       });
 
-      console.log(`Running: docker run ${containerName}`);
+      console.log(`Running: docker run ${containerName} with volume ${volumeName}`);
       await execAsync(dockerCmd);
 
       // Проверяем установлен ли CS2 - если да, короткий таймаут; если нет, долгий
       const cs2Installed = await this.isCs2Installed();
-      const waitTimeout = cs2Installed ? 120000 : 3600000; // 2 мин если есть, 60 мин если нет
-      console.log(`CS2 ${cs2Installed ? 'installed' : 'not installed'}, waiting ${waitTimeout / 1000}s for container...`);
+      const waitTimeout = cs2Installed ? 180000 : 3600000; // 3 мин если есть, 60 мин если нет
+      console.log(`CS2 ${cs2Installed ? 'installed in template' : 'not installed'}, waiting ${waitTimeout / 1000}s for container...`);
 
       await this.waitForContainer(containerName, waitTimeout);
 
@@ -304,8 +354,9 @@ class ServerProvisioner extends EventEmitter {
     port: number;
     rconPassword: string;
     serverPassword: string;
+    volumeName: string;
   }): string {
-    const { containerName, port, rconPassword, serverPassword } = params;
+    const { containerName, port, rconPassword, serverPassword, volumeName } = params;
 
     const envVars = [
       `SRCDS_TOKEN=${this.config.gsltToken}`,
@@ -330,8 +381,8 @@ class ServerProvisioner extends EventEmitter {
       `-p ${port}:27015/tcp`,
       `-p ${port}:27015/udp`,
       `-p ${port + 100}:27020/udp`, // GOTV
-      // Shared volume для CS2 данных (скачивается один раз, используется всеми)
-      `-v cs2-shared-data:/home/steam/cs2-dedicated`,
+      // Volume для этого сервера (создаётся из template)
+      `-v ${volumeName}:/home/steam/cs2-dedicated`,
       // Ресурсы (адаптивно под сервер)
       `--memory=${process.env.CS2_MEMORY_LIMIT || '4g'}`,
       `--cpus=${process.env.CS2_CPU_LIMIT || '1'}`,
@@ -405,7 +456,14 @@ class ServerProvisioner extends EventEmitter {
       await execAsync(`docker stop ${containerName}`);
       await execAsync(`docker rm ${containerName}`);
 
-      // НЕ удаляем shared volume - он общий для всех серверов
+      // Удалить volume сервера (опционально, для экономии места)
+      const volumeName = `cs2-server-${server.port}`;
+      try {
+        await execAsync(`docker volume rm ${volumeName}`);
+        console.log(`Volume ${volumeName} removed`);
+      } catch {
+        // Volume может не существовать или быть занят
+      }
 
       // Освободить порт
       this.releasePort(server.port);

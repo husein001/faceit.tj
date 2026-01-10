@@ -3,18 +3,28 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 
-// Ищем .env в нескольких местах
-const envPaths = [
-  path.resolve(process.cwd(), '.env'),           // текущая папка
-  path.resolve(process.cwd(), '../.env'),        // родительская папка
-  path.resolve(__dirname, '../.env'),            // относительно src/
-  path.resolve(__dirname, '../../.env'),         // относительно src/ (корень проекта)
+// Определяем окружение
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Ищем .env файл (приоритет .env.production в продакшене)
+const envPaths = isProduction ? [
+  path.resolve(process.cwd(), '.env.production'),
+  path.resolve(process.cwd(), '../.env.production'),
+  path.resolve(__dirname, '../.env.production'),
+  path.resolve(__dirname, '../../.env.production'),
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '../.env'),
+] : [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '../.env'),
+  path.resolve(__dirname, '../.env'),
+  path.resolve(__dirname, '../../.env'),
 ];
 
 let envLoaded = false;
 for (const envPath of envPaths) {
   if (fs.existsSync(envPath)) {
-    console.log('Loading .env from:', envPath);
+    console.log(`Loading env from: ${envPath} (NODE_ENV=${process.env.NODE_ENV || 'development'})`);
     dotenv.config({ path: envPath });
     envLoaded = true;
     break;
