@@ -186,17 +186,51 @@ export default function LobbyPage() {
     }
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(`https://faceit.tj/lobby/${code}`);
-    setCopied('link');
-    setTimeout(() => setCopied(null), 2000);
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    // Try modern clipboard API first
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (err) {
+        console.error('Clipboard API failed:', err);
+      }
+    }
+
+    // Fallback for HTTP or older browsers
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return success;
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      return false;
+    }
   };
 
-  const copyConnect = () => {
-    if (lobby?.connectCommand) {
-      navigator.clipboard.writeText(lobby.connectCommand);
-      setCopied('connect');
+  const copyLink = async () => {
+    const success = await copyToClipboard(`https://faceit.tj/lobby/${code}`);
+    if (success) {
+      setCopied('link');
       setTimeout(() => setCopied(null), 2000);
+    }
+  };
+
+  const copyConnect = async () => {
+    if (lobby?.connectCommand) {
+      const success = await copyToClipboard(lobby.connectCommand);
+      if (success) {
+        setCopied('connect');
+        setTimeout(() => setCopied(null), 2000);
+      }
     }
   };
 
@@ -240,6 +274,22 @@ export default function LobbyPage() {
   const team2Players = lobby.players.filter((p) => p.team === 2);
   const isInLobby = lobby.players.some((p) => p.id === user?.id);
 
+  // Map images mapping
+  const getMapImage = (mapName: string): string => {
+    const mapImages: Record<string, string> = {
+      'de_dust2': '/maps/dust2.jpeg',
+      'de_mirage': '/maps/mirage.jpeg',
+      'de_inferno': '/maps/inferno.jpeg',
+      'de_nuke': '/maps/nuke.jpeg',
+      'de_ancient': '/maps/ancient.jpeg',
+      'de_overpass': '/maps/overpass.jpeg',
+      'de_train': '/maps/train.jpeg',
+      'de_anubis': '/maps/anubis.jpeg',
+      'de_vertigo': '/maps/vertigo.jpeg',
+    };
+    return mapImages[mapName] || '/maps/dust2.jpeg';
+  };
+
   return (
     <div className="min-h-screen py-8 px-4">
       <div className="max-w-[1400px] mx-auto">
@@ -253,10 +303,17 @@ export default function LobbyPage() {
         <div className="glass-panel rounded-2xl p-6 mb-6">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-6">
-              <div className="h-24 w-40 rounded-lg bg-gradient-to-br from-background-secondary to-background-dark flex items-center justify-center border border-white/10">
-                <span className="font-bold text-white uppercase">
-                  {lobby.map.replace('de_', '')}
-                </span>
+              <div className="h-24 w-40 rounded-lg overflow-hidden border border-white/10 relative">
+                <img
+                  src={getMapImage(lobby.map)}
+                  alt={lobby.map}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center pb-2">
+                  <span className="font-bold text-white uppercase text-sm">
+                    {lobby.map.replace('de_', '')}
+                  </span>
+                </div>
               </div>
               <div>
                 <p className="text-primary text-sm font-medium uppercase">Competitive 5v5</p>
