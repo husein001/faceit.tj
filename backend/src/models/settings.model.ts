@@ -9,12 +9,13 @@ export interface PremiumSettings {
 
 // Получить настройки премиума
 export async function getPremiumSettings(): Promise<PremiumSettings> {
-  const result = await queryOne<{ value: string }>(
+  const result = await queryOne<{ value: PremiumSettings }>(
     `SELECT value FROM settings WHERE key = 'premium'`
   );
 
   if (result) {
-    return JSON.parse(result.value);
+    // PostgreSQL JSONB возвращает уже как объект
+    return result.value;
   }
 
   // Дефолтные настройки
