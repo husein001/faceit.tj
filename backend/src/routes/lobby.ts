@@ -33,11 +33,42 @@ router.post('/create', authMiddleware, premiumMiddleware, async (req: AuthReques
       return;
     }
 
-    // Check if user already has an active lobby
+    // Check if user already has an active lobby - return it instead of error
     const user = await findUserById(userId);
     if (user?.active_lobby_id) {
-      res.status(400).json({ error: 'You already have an active lobby' });
-      return;
+      const existingData = await getMatchWithPlayers(user.active_lobby_id);
+      if (existingData && (existingData.match.status === 'waiting' || existingData.match.status === 'live')) {
+        const server = await findServerById(existingData.match.server_id);
+        const serverPassword = existingData.match.lobby_code?.toLowerCase() || '';
+        const connectCommand = server ? `connect ${server.ip}:${server.port}; password ${serverPassword}` : null;
+
+        res.json({
+          success: true,
+          existing: true,
+          lobbyCode: existingData.match.lobby_code,
+          matchId: existingData.match.id,
+          map: existingData.match.map,
+          status: existingData.match.status,
+          expiresAt: existingData.match.lobby_expires_at,
+          connectCommand,
+          server: server ? {
+            name: server.name,
+            ip: server.ip,
+            port: server.port,
+          } : null,
+          players: existingData.players.map(p => ({
+            id: p.user_id,
+            team: p.team,
+            username: (p as any).user?.username,
+            avatarUrl: (p as any).user?.avatar_url,
+            mmr: (p as any).user?.mmr,
+          })),
+        });
+        return;
+      } else {
+        // Лобби закончилось - очистить active_lobby_id
+        await setUserActiveLobby(userId, null);
+      }
     }
 
     // Найти свободный сервер (админ должен добавить серверы через админку)

@@ -8,9 +8,9 @@ export async function createMatch(
   createdBy?: string,
   lobbyCode?: string
 ): Promise<Match> {
-  // Время жизни лобби для сбора игроков (только для отображения на UI)
+  // Время жизни лобби для сбора игроков - 5 минут если меньше 2 игроков
   const lobbyExpiresAt = matchType === 'custom'
-    ? new Date(Date.now() + 30 * 60 * 1000) // 30 минут на сбор
+    ? new Date(Date.now() + 5 * 60 * 1000) // 5 минут на сбор минимум 2 игроков
     : null;
 
   // Сервер не резервируется по времени - используется пока игра не закончится
