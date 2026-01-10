@@ -160,13 +160,25 @@ class ServerProvisioner extends EventEmitter {
     const cs2Installed = await this.isCs2Installed();
 
     if (cs2Installed) {
-      // Копируем из template (быстро, ~2-3 минуты)
-      console.log(`Creating ${volumeName} by copying from cs2-template...`);
+      // Копируем из template
+      // Пробуем reflink (copy-on-write, экономит место на btrfs/xfs)
+      // Если не поддерживается - обычное копирование
+      console.log(`Creating ${volumeName} from cs2-template...`);
       await execAsync(`docker volume create ${volumeName}`);
-      await execAsync(
-        `docker run --rm -v cs2-template:/source:ro -v ${volumeName}:/dest alpine sh -c "cp -a /source/. /dest/"`
-      );
-      console.log(`Volume ${volumeName} created from template`);
+
+      // Попробовать reflink, если не получится - обычное копирование
+      try {
+        await execAsync(
+          `docker run --rm -v cs2-template:/source -v ${volumeName}:/dest alpine sh -c "cp -a --reflink=auto /source/. /dest/"`
+        );
+        console.log(`Volume ${volumeName} created (with reflink if supported)`);
+      } catch {
+        // Alpine cp не поддерживает --reflink, используем обычное копирование
+        await execAsync(
+          `docker run --rm -v cs2-template:/source -v ${volumeName}:/dest alpine sh -c "cp -a /source/. /dest/"`
+        );
+        console.log(`Volume ${volumeName} created (full copy)`);
+      }
     } else {
       // Template пустой, создаём пустой volume (CS2 скачается при первом запуске)
       console.log(`Creating empty ${volumeName} (CS2 will download on first start)...`);
