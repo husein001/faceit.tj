@@ -316,6 +316,39 @@ router.post('/servers/:id/offline', adminAuthMiddleware, async (req: AdminReques
   }
 });
 
+// Сбросить все застрявшие серверы (IN_GAME → IDLE)
+router.post('/servers/reset-stuck', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
+  try {
+    const { findStuckServers, updateServerStatus } = await import('../models/server.model');
+
+    // Find all stuck servers
+    const stuckServers = await findStuckServers();
+
+    // Also find servers that are IN_GAME for too long
+    const allInGame = await query<{ id: string; name: string }>(
+      `SELECT id, name FROM servers WHERE status = 'IN_GAME'`
+    );
+
+    const resetCount = allInGame.length;
+
+    // Reset all IN_GAME servers to IDLE
+    for (const server of allInGame) {
+      await updateServerStatus(server.id, 'IDLE', null, null);
+      console.log(`Admin reset server ${server.name} to IDLE`);
+    }
+
+    res.json({
+      success: true,
+      message: `Сброшено ${resetCount} сервер(ов)`,
+      resetCount,
+      servers: allInGame.map(s => s.name),
+    });
+  } catch (error) {
+    console.error('Ошибка сброса серверов:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 // Активные матчи
 router.get('/matches', adminAuthMiddleware, async (req: AdminRequest, res: Response) => {
   try {

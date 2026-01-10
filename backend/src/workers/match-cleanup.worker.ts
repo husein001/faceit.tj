@@ -1,11 +1,11 @@
 import { query } from '../config/database';
 import { updateMatchStatus, getMatchPlayers } from '../models/match.model';
-import { updateServerStatus, findServerById } from '../models/server.model';
+import { updateServerStatus, findStuckServers } from '../models/server.model';
 import { setUserActiveLobby } from '../models/user.model';
 import { io } from '../index';
 
-const INTERVAL = 60000; // Check every 60 seconds
-const ABANDONED_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes without any player = abandoned
+const INTERVAL = 30000; // Check every 30 seconds
+const ABANDONED_TIMEOUT_MINUTES = 5; // 5 minutes without any player = abandoned
 
 let intervalId: NodeJS.Timeout | null = null;
 
@@ -23,15 +23,12 @@ export function startMatchCleanupWorker(): void {
     return;
   }
 
-  console.log('Starting match cleanup worker (interval: 60s)');
+  console.log('Starting match cleanup worker (interval: 30s)');
 
-  intervalId = setInterval(async () => {
-    try {
-      await checkAbandonedMatches();
-    } catch (error) {
-      console.error('Match cleanup worker error:', error);
-    }
-  }, INTERVAL);
+  // Run immediately on start
+  runCleanup();
+
+  intervalId = setInterval(runCleanup, INTERVAL);
 }
 
 export function stopMatchCleanupWorker(): void {
@@ -42,13 +39,57 @@ export function stopMatchCleanupWorker(): void {
   }
 }
 
+async function runCleanup(): Promise<void> {
+  try {
+    await cleanupStuckServers();
+    await checkAbandonedMatches();
+  } catch (error) {
+    console.error('Match cleanup worker error:', error);
+  }
+}
+
+// Clean up servers that are IN_GAME but their match is cancelled/finished
+async function cleanupStuckServers(): Promise<void> {
+  const stuckServers = await findStuckServers();
+
+  for (const server of stuckServers) {
+    console.log(`Found stuck server ${server.name} (${server.id}) - releasing...`);
+
+    // Release server immediately
+    await updateServerStatus(server.id, 'IDLE', null, null);
+
+    // Async RCON cleanup
+    (async () => {
+      try {
+        const { gameServerManager } = await import('../services/game-server');
+        await Promise.race([
+          gameServerManager.executeRcon(server.id, 'sv_password ""'),
+          new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
+        ]);
+        await Promise.race([
+          gameServerManager.executeRcon(server.id, 'kickall'),
+          new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
+        ]);
+        console.log(`Stuck server ${server.name} cleaned up`);
+      } catch (err) {
+        console.error(`Failed to cleanup stuck server ${server.name}:`, err);
+      }
+    })();
+  }
+
+  if (stuckServers.length > 0) {
+    console.log(`Released ${stuckServers.length} stuck server(s)`);
+  }
+}
+
+// Check for live matches with no players connected
 async function checkAbandonedMatches(): Promise<void> {
-  // Find live matches that started more than ABANDONED_TIMEOUT ago
+  // Find live matches that started more than X minutes ago
   const abandonedMatches = await query<LiveMatch>(
     `SELECT m.id, m.server_id, m.created_by, m.lobby_code, m.started_at
      FROM matches m
      WHERE m.status = 'live'
-     AND m.started_at < NOW() - INTERVAL '${Math.floor(ABANDONED_TIMEOUT_MS / 1000)} seconds'`
+     AND m.started_at < NOW() - INTERVAL '${ABANDONED_TIMEOUT_MINUTES} minutes'`
   );
 
   for (const match of abandonedMatches) {
@@ -83,12 +124,12 @@ async function checkAbandonedMatches(): Promise<void> {
 }
 
 async function cleanupMatch(match: LiveMatch): Promise<void> {
-  // Update match status to cancelled/finished
+  // Update match status to cancelled
   await updateMatchStatus(match.id, 'cancelled');
 
   // Release server
   if (match.server_id) {
-    await updateServerStatus(match.server_id, 'IDLE');
+    await updateServerStatus(match.server_id, 'IDLE', null, null);
 
     // Async RCON cleanup
     const serverId = match.server_id;

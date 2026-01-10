@@ -112,6 +112,8 @@ export const adminApi = {
     request<any>(`/api/admin/servers/${id}/online`, { method: 'POST', token }),
   setServerOffline: (token: string, id: string) =>
     request<any>(`/api/admin/servers/${id}/offline`, { method: 'POST', token }),
+  resetStuckServers: (token: string) =>
+    request<any>('/api/admin/servers/reset-stuck', { method: 'POST', token }),
   getMatches: (token: string) => request<any>('/api/admin/matches', { token }),
   getUsers: (token: string, limit?: number) =>
     request<any>(`/api/admin/users${limit ? `?limit=${limit}` : ''}`, { token }),

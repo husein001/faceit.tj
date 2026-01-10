@@ -140,3 +140,27 @@ export async function setServerOffline(id: string): Promise<Server | null> {
     [id]
   );
 }
+
+// Find servers that are IN_GAME but their match is no longer active
+export async function findStuckServers(): Promise<Server[]> {
+  return query<Server>(
+    `SELECT s.* FROM servers s
+     LEFT JOIN matches m ON s.current_match_id = m.id
+     WHERE s.status = 'IN_GAME'
+     AND (
+       s.current_match_id IS NULL
+       OR m.id IS NULL
+       OR m.status NOT IN ('waiting', 'live')
+     )`
+  );
+}
+
+// Find servers IN_GAME for more than X minutes with no active match
+export async function findAbandonedServers(minutesThreshold: number = 5): Promise<Server[]> {
+  return query<Server>(
+    `SELECT s.* FROM servers s
+     LEFT JOIN matches m ON s.current_match_id = m.id
+     WHERE s.status = 'IN_GAME'
+     AND s.last_heartbeat < NOW() - INTERVAL '${minutesThreshold} minutes'`
+  );
+}

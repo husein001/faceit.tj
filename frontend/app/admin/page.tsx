@@ -613,8 +613,24 @@ export default function AdminPage() {
             {/* Серверы */}
             {activeTab === 'servers' && (
               <div className="space-y-6">
-                {/* Кнопка добавить */}
-                <div className="flex justify-end">
+                {/* Кнопки управления */}
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Сбросить все IN_GAME серверы в IDLE?')) return;
+                      try {
+                        const result = await adminApi.resetStuckServers(token);
+                        alert(result.message || 'Серверы сброшены');
+                        loadData();
+                      } catch (err: any) {
+                        alert(err.message || 'Ошибка сброса серверов');
+                      }
+                    }}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-lg">refresh</span>
+                    Сбросить застрявшие серверы
+                  </button>
                   <button
                     onClick={() => {
                       setShowServerForm(true);
