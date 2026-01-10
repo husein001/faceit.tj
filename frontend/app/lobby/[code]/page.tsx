@@ -22,6 +22,7 @@ interface LobbyData {
   hostId: string;
   expiresAt: string;
   connectCommand: string | null;
+  server: { name: string; ip: string; port: number } | null;
   players: LobbyPlayer[];
 }
 
@@ -35,6 +36,7 @@ export default function LobbyPage() {
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [copied, setCopied] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
 
   const code = params.code as string;
   const isHost = lobby?.hostId === user?.id;
@@ -164,6 +166,26 @@ export default function LobbyPage() {
     }
   };
 
+  const handleStart = async () => {
+    if (!token) return;
+    setIsStarting(true);
+    setError(null);
+    try {
+      const result = await lobbyApi.start(token, code);
+      // Update lobby with connect command from response
+      setLobby((prev) => prev ? {
+        ...prev,
+        connectCommand: result.connectCommand,
+        server: result.server,
+        status: 'live',
+      } : prev);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
   const copyLink = () => {
     navigator.clipboard.writeText(`https://faceit.tj/lobby/${code}`);
     setCopied('link');
@@ -287,6 +309,34 @@ export default function LobbyPage() {
                   className="px-4 py-2 bg-background-dark text-danger border border-danger/30 hover:bg-danger/10 rounded-lg font-bold text-sm"
                 >
                   Leave
+                </button>
+              )}
+              {isHost && lobby.status === 'waiting' && !lobby.connectCommand && (
+                <button
+                  onClick={handleStart}
+                  disabled={lobby.players.length < 2 || isStarting}
+                  className={`px-6 py-3 font-bold rounded-lg transition-all flex items-center gap-2 ${
+                    lobby.players.length >= 2
+                      ? 'bg-green-500 text-white hover:bg-green-400 hover:shadow-[0_0_20px_rgba(34,197,94,0.5)]'
+                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {isStarting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Поиск сервера...
+                    </>
+                  ) : lobby.players.length >= 2 ? (
+                    <>
+                      <span className="material-symbols-outlined">play_arrow</span>
+                      Начать игру
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined">hourglass_empty</span>
+                      Ждём игроков ({lobby.players.length}/2)
+                    </>
+                  )}
                 </button>
               )}
               {isHost && (
