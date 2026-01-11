@@ -370,48 +370,76 @@ router.post('/:code/start', authMiddleware, async (req: AuthRequest, res: Respon
       return;
     }
 
-    // Назначить сервер матчу и обновить статусы В ПЕРВУЮ ОЧЕРЕДЬ
+    // Назначить сервер матчу и обновить статусы
     await assignServerToMatch(match.id, server.id);
     await updateServerStatus(server.id, 'IN_GAME', match.id);
-    await updateMatchStatus(match.id, 'live');
 
     const serverPassword = match.lobby_code?.toLowerCase() || '';
+    const { gameServerManager } = await import('../services/game-server');
+
+    // СНАЧАЛА настраиваем сервер (БЛОКИРУЮЩИЙ вызов - игроки не должны заходить пока не настроено!)
+    console.log(`Configuring server ${server.id} for match ${match.id}: map=${match.map}, password=${serverPassword}`);
+
+    try {
+      // 1. Установить пароль СНАЧАЛА (чтобы никто не зашёл раньше времени)
+      console.log('Setting server password...');
+      const pwResult = await Promise.race([
+        gameServerManager.executeRcon(server.id, `sv_password "${serverPassword}"`),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Password RCON timeout')), 8000))
+      ]);
+      console.log('Password set result:', pwResult);
+
+      // 2. Сменить карту на выбранную
+      console.log(`Changing map to ${match.map}...`);
+      const mapResult = await Promise.race([
+        gameServerManager.executeRcon(server.id, `changelevel ${match.map}`),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Map change RCON timeout')), 15000))
+      ]);
+      console.log('Map change result:', mapResult);
+
+      // 3. Подождать загрузки карты (карта загружается ~5-10 секунд)
+      console.log('Waiting for map to load...');
+      await new Promise(resolve => setTimeout(resolve, 8000));
+
+      // 4. Переустановить пароль после смены карты (changelevel может сбросить настройки)
+      console.log('Re-setting password after map change...');
+      await Promise.race([
+        gameServerManager.executeRcon(server.id, `sv_password "${serverPassword}"`),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Password reset RCON timeout')), 5000))
+      ]);
+
+      console.log(`Server ${server.id} configured successfully: map=${match.map}, password=${serverPassword}`);
+    } catch (err) {
+      console.error('Failed to configure server:', err);
+      // Всё равно продолжаем - сервер может работать, просто конфиг не применился
+      // Попробуем ещё раз асинхронно
+      (async () => {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          await gameServerManager.executeRcon(server.id, `sv_password "${serverPassword}"`);
+          await gameServerManager.executeRcon(server.id, `changelevel ${match.map}`);
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          await gameServerManager.executeRcon(server.id, `sv_password "${serverPassword}"`);
+          console.log('Retry server config succeeded');
+        } catch (retryErr) {
+          console.error('Retry server config also failed:', retryErr);
+        }
+      })();
+    }
+
+    // Теперь обновляем статус матча
+    await updateMatchStatus(match.id, 'live');
+
     const connectCommand = `connect ${server.ip}:${server.port}; password ${serverPassword}`;
 
-    // Настроить сервер АСИНХРОННО (не блокируем ответ)
+    // Get5 конфиг (опционально, асинхронно)
     (async () => {
       try {
-        const { gameServerManager } = await import('../services/game-server');
-
-        // Сменить карту (с таймаутом)
-        const mapResult = await Promise.race([
-          gameServerManager.executeRcon(server.id, `changelevel ${match.map}`),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('RCON timeout')), 10000))
-        ]);
-        console.log('Map change result:', mapResult);
-
-        // Подождать загрузки карты
-        await new Promise(resolve => setTimeout(resolve, 5000));
-
-        // Установить пароль
-        const pwResult = await Promise.race([
-          gameServerManager.executeRcon(server.id, `sv_password "${serverPassword}"`),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('RCON timeout')), 5000))
-        ]);
-        console.log('Password set result:', pwResult);
-
-        // Get5 конфиг (опционально)
-        try {
-          const configUrl = `${process.env.API_URL}/api/matches/${match.id}/config`;
-          await loadGet5Match(server.id, configUrl);
-          console.log('Get5 config loaded');
-        } catch (e) {
-          console.error('Get5 load failed (non-critical):', e);
-        }
-
-        console.log(`Server ${server.id} configured: map=${match.map}, password set`);
-      } catch (err) {
-        console.error('Failed to configure server (non-blocking):', err);
+        const configUrl = `${process.env.API_URL}/api/matches/${match.id}/config`;
+        await loadGet5Match(server.id, configUrl);
+        console.log('Get5 config loaded');
+      } catch (e) {
+        console.error('Get5 load failed (non-critical):', e);
       }
     })();
 
@@ -489,21 +517,27 @@ router.delete('/:code/cancel', authMiddleware, async (req: AuthRequest, res: Res
     // Send response BEFORE RCON cleanup
     res.json({ success: true });
 
-    // Cleanup server ASYNC (не блокируем ответ)
+    // Cleanup server ASYNC (не блокируем ответ) - set random password so nobody can connect
     if (match.server_id) {
       const serverId = match.server_id;
       (async () => {
         try {
           const { gameServerManager } = await import('../services/game-server');
-          await Promise.race([
-            gameServerManager.executeRcon(serverId, 'sv_password ""'),
-            new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
-          ]);
+          // Generate random password for idle server
+          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+          let idlePassword = 'idle_';
+          for (let i = 0; i < 8; i++) {
+            idlePassword += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
           await Promise.race([
             gameServerManager.executeRcon(serverId, 'kickall'),
             new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
           ]);
-          console.log(`Server ${serverId} cleaned up after cancel`);
+          await Promise.race([
+            gameServerManager.executeRcon(serverId, `sv_password "${idlePassword}"`),
+            new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
+          ]);
+          console.log(`Server ${serverId} cleaned up with idle password after cancel`);
         } catch (err) {
           console.error('Failed to cleanup server (non-blocking):', err);
         }

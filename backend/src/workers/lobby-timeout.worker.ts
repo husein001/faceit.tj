@@ -52,17 +52,23 @@ async function checkExpiredLobbies(): Promise<void> {
       if (lobby.server_id) {
         await updateServerStatus(lobby.server_id, 'IDLE');
 
-        // RCON cleanup async (не блокируем воркер)
+        // RCON cleanup async (не блокируем воркер) - set random password so nobody can connect
         const serverId = lobby.server_id;
         (async () => {
           try {
             const { gameServerManager } = await import('../services/game-server');
+            // Generate random password for idle server
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            let idlePassword = 'idle_';
+            for (let i = 0; i < 8; i++) {
+              idlePassword += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
             await Promise.race([
-              gameServerManager.executeRcon(serverId, 'sv_password ""'),
+              gameServerManager.executeRcon(serverId, 'kickall'),
               new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
             ]);
             await Promise.race([
-              gameServerManager.executeRcon(serverId, 'kickall'),
+              gameServerManager.executeRcon(serverId, `sv_password "${idlePassword}"`),
               new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
             ]);
           } catch (err) {

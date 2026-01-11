@@ -7,6 +7,16 @@ import { io } from '../index';
 const INTERVAL = 30000; // Check every 30 seconds
 const ABANDONED_TIMEOUT_MINUTES = 5; // 5 minutes without any player = abandoned
 
+// Generate random password for idle servers (so nobody can connect)
+function generateIdlePassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let password = 'idle_';
+  for (let i = 0; i < 8; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
 let intervalId: NodeJS.Timeout | null = null;
 
 interface LiveMatch {
@@ -58,19 +68,20 @@ async function cleanupStuckServers(): Promise<void> {
     // Release server immediately
     await updateServerStatus(server.id, 'IDLE', null, null);
 
-    // Async RCON cleanup
+    // Async RCON cleanup - set random password so nobody can connect
     (async () => {
       try {
         const { gameServerManager } = await import('../services/game-server');
-        await Promise.race([
-          gameServerManager.executeRcon(server.id, 'sv_password ""'),
-          new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
-        ]);
+        const idlePassword = generateIdlePassword();
         await Promise.race([
           gameServerManager.executeRcon(server.id, 'kickall'),
           new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
         ]);
-        console.log(`Stuck server ${server.name} cleaned up`);
+        await Promise.race([
+          gameServerManager.executeRcon(server.id, `sv_password "${idlePassword}"`),
+          new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
+        ]);
+        console.log(`Stuck server ${server.name} cleaned up with idle password`);
       } catch (err) {
         console.error(`Failed to cleanup stuck server ${server.name}:`, err);
       }
@@ -131,20 +142,21 @@ async function cleanupMatch(match: LiveMatch): Promise<void> {
   if (match.server_id) {
     await updateServerStatus(match.server_id, 'IDLE', null, null);
 
-    // Async RCON cleanup
+    // Async RCON cleanup - set random password so nobody can connect
     const serverId = match.server_id;
     (async () => {
       try {
         const { gameServerManager } = await import('../services/game-server');
-        await Promise.race([
-          gameServerManager.executeRcon(serverId, 'sv_password ""'),
-          new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
-        ]);
+        const idlePassword = generateIdlePassword();
         await Promise.race([
           gameServerManager.executeRcon(serverId, 'kickall'),
           new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
         ]);
-        console.log(`Server ${serverId} cleaned up after abandoned match`);
+        await Promise.race([
+          gameServerManager.executeRcon(serverId, `sv_password "${idlePassword}"`),
+          new Promise((_, reject) => setTimeout(() => reject('timeout'), 5000))
+        ]);
+        console.log(`Server ${serverId} cleaned up with idle password after abandoned match`);
       } catch (err) {
         console.error('Failed to cleanup server:', err);
       }
