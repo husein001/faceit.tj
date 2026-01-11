@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  cs2-server-1:
+    build:
+      context: .
+      args:
+        METAMOD_VERSION: "2.0.0-git1313"
+        CSS_VERSION: "v287"
+        MATCHZY_VERSION: "0.8.6"
+    container_name: cs2-faceit-27015
+    restart: unless-stopped
+    ports:
+      - "27015:27015/tcp"
+      - "27015:27015/udp"
+      - "27115:27020/udp"  # GOTV
+    environment:
+      - SRCDS_TOKEN=${GSLT_TOKEN}
+      - CS2_RCONPW=${RCON_PASSWORD:-changeme}
+      - CS2_PW=  # Empty password, will be set by RCON
+      - CS2_PORT=27015
+      - CS2_MAXPLAYERS=10
+      - CS2_GAMETYPE=0
+      - CS2_GAMEMODE=1
+      - CS2_STARTMAP=de_dust2
+      - CS2_TICKRATE=128
+    volumes:
+      - cs2-data:/home/steam/cs2-dedicated
+      - ./configs:/home/steam/cs2-dedicated/game/csgo/cfg/custom:ro
+    networks:
+      - faceit_network
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+
+  cs2-server-2:
+    build:
+      context: .
+      args:
+        METAMOD_VERSION: "2.0.0-git1313"
+        CSS_VERSION: "v287"
+        MATCHZY_VERSION: "0.8.6"
+    container_name: cs2-faceit-27016
+    restart: unless-stopped
+    ports:
+      - "27016:27015/tcp"
+      - "27016:27015/udp"
+      - "27116:27020/udp"
+    environment:
+      - SRCDS_TOKEN=${GSLT_TOKEN_2}
+      - CS2_RCONPW=${RCON_PASSWORD:-changeme}
+      - CS2_PW=
+      - CS2_PORT=27015
+      - CS2_MAXPLAYERS=10
+      - CS2_GAMETYPE=0
+      - CS2_GAMEMODE=1
+      - CS2_STARTMAP=de_dust2
+      - CS2_TICKRATE=128
+    volumes:
+      - cs2-data:/home/steam/cs2-dedicated
+      - ./configs:/home/steam/cs2-dedicated/game/csgo/cfg/custom:ro
+    networks:
+      - faceit_network
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+
+volumes:
+  cs2-data:
+    driver: local
+
+networks:
+  faceit_network:
+    external: true

@@ -263,6 +263,92 @@ class GameServerManager extends EventEmitter {
     return this.executeRcon(serverId, 'sm_unpause');
   }
 
+  // ============ MATCHZY INTEGRATION ============
+
+  async getMatchZyStatus(serverId: string): Promise<any | undefined> {
+    const result = await this.executeRcon(serverId, 'matchzy_status');
+    if (!result.success || !result.response) return undefined;
+
+    try {
+      // MatchZy возвращает JSON статус
+      const status = JSON.parse(result.response);
+      return {
+        pluginVersion: status.plugin_version || 'unknown',
+        gamestate: status.matchzy_gamestate || status.gamestate || 'none',
+        paused: status.is_paused || status.paused || false,
+        matchId: status.matchid || null,
+        mapNumber: status.map_number || 0,
+        team1: {
+          name: status.team1?.name || 'Team 1',
+          score: status.team1?.score || 0,
+          ready: status.team1?.ready || false,
+          side: status.team1?.side || 'ct',
+        },
+        team2: {
+          name: status.team2?.name || 'Team 2',
+          score: status.team2?.score || 0,
+          ready: status.team2?.ready || false,
+          side: status.team2?.side || 't',
+        },
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  async loadMatchZyMatch(serverId: string, configUrl: string): Promise<RconResult> {
+    return this.executeRcon(serverId, `matchzy_loadmatch_url "${configUrl}"`);
+  }
+
+  async endMatchZyMatch(serverId: string): Promise<RconResult> {
+    return this.executeRcon(serverId, 'matchzy_endmatch');
+  }
+
+  async forceReadyMatchZy(serverId: string): Promise<RconResult> {
+    return this.executeRcon(serverId, 'matchzy_forceready');
+  }
+
+  async pauseMatchZyMatch(serverId: string): Promise<RconResult> {
+    return this.executeRcon(serverId, 'matchzy_pause');
+  }
+
+  async unpauseMatchZyMatch(serverId: string): Promise<RconResult> {
+    return this.executeRcon(serverId, 'matchzy_unpause');
+  }
+
+  async restoreMatchZyMatch(serverId: string, round: number): Promise<RconResult> {
+    return this.executeRcon(serverId, `matchzy_restore ${round}`);
+  }
+
+  async setMatchZyTeamName(serverId: string, team: 1 | 2, name: string): Promise<RconResult> {
+    return this.executeRcon(serverId, `matchzy_team${team}_name "${name}"`);
+  }
+
+  // Universal method - works with both MatchZy and Get5
+  async loadMatch(serverId: string, configUrl: string, plugin: 'matchzy' | 'get5' = 'matchzy'): Promise<RconResult> {
+    if (plugin === 'matchzy') {
+      return this.loadMatchZyMatch(serverId, configUrl);
+    } else {
+      return this.loadGet5Match(serverId, configUrl);
+    }
+  }
+
+  async endMatch(serverId: string, plugin: 'matchzy' | 'get5' = 'matchzy'): Promise<RconResult> {
+    if (plugin === 'matchzy') {
+      return this.endMatchZyMatch(serverId);
+    } else {
+      return this.endGet5Match(serverId);
+    }
+  }
+
+  async getMatchStatus(serverId: string, plugin: 'matchzy' | 'get5' = 'matchzy'): Promise<any | undefined> {
+    if (plugin === 'matchzy') {
+      return this.getMatchZyStatus(serverId);
+    } else {
+      return this.getGet5Status(serverId);
+    }
+  }
+
   // ============ SERVER LIFECYCLE ============
 
   async reserveServer(matchId: string, duration: number = 7200000): Promise<Server | null> {

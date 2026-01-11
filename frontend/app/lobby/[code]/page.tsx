@@ -12,6 +12,7 @@ interface LobbyPlayer {
   username: string;
   avatarUrl: string | null;
   mmr: number;
+  connected?: boolean;
 }
 
 interface LobbyData {
@@ -26,6 +27,13 @@ interface LobbyData {
   players: LobbyPlayer[];
 }
 
+interface MatchLiveState {
+  team1Score: number;
+  team2Score: number;
+  phase: 'waiting' | 'knife' | 'live' | 'halftime' | 'overtime' | 'finished';
+  roundNumber: number;
+}
+
 export default function LobbyPage() {
   const params = useParams();
   const router = useRouter();
@@ -37,6 +45,13 @@ export default function LobbyPage() {
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [copied, setCopied] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [matchLive, setMatchLive] = useState<MatchLiveState>({
+    team1Score: 0,
+    team2Score: 0,
+    phase: 'waiting',
+    roundNumber: 0,
+  });
+  const [matchEvents, setMatchEvents] = useState<string[]>([]);
 
   const code = params.code as string;
   const isHost = lobby?.hostId === user?.id;
@@ -123,11 +138,91 @@ export default function LobbyPage() {
       });
     };
 
+    // Match live events
+    const handleMatchScoreUpdate = (data: any) => {
+      setMatchLive((prev) => ({
+        ...prev,
+        team1Score: data.team1Score ?? data.score?.team1 ?? prev.team1Score,
+        team2Score: data.team2Score ?? data.score?.team2 ?? prev.team2Score,
+      }));
+    };
+
+    const handleRoundEnd = (data: any) => {
+      setMatchLive((prev) => ({
+        ...prev,
+        team1Score: data.score?.team1 ?? prev.team1Score,
+        team2Score: data.score?.team2 ?? prev.team2Score,
+        roundNumber: data.roundNumber ?? prev.roundNumber,
+        phase: 'live',
+      }));
+      addMatchEvent(`Раунд ${data.roundNumber} завершён: ${data.score?.team1}-${data.score?.team2}`);
+    };
+
+    const handleKnifeRoundStart = () => {
+      setMatchLive((prev) => ({ ...prev, phase: 'knife' }));
+      addMatchEvent('Knife раунд начался!');
+    };
+
+    const handleKnifeRoundWon = (data: any) => {
+      addMatchEvent(`${data.winner === 'team1' ? 'CT' : 'T'} выиграли knife раунд`);
+    };
+
+    const handleMatchGoingLive = () => {
+      setMatchLive((prev) => ({ ...prev, phase: 'live' }));
+      addMatchEvent('Матч начинается!');
+    };
+
+    const handleMatchFinished = (data: any) => {
+      setMatchLive((prev) => ({
+        ...prev,
+        team1Score: data.team1Score ?? prev.team1Score,
+        team2Score: data.team2Score ?? prev.team2Score,
+        phase: 'finished',
+      }));
+      setLobby((prev) => prev ? { ...prev, status: 'finished' } : prev);
+      addMatchEvent(`Матч завершён! ${data.winner === 'team1' ? 'CT' : 'T'} победили ${data.team1Score}-${data.team2Score}`);
+    };
+
+    const handlePlayerConnected = (data: any) => {
+      setLobby((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          players: prev.players.map((p) =>
+            p.id === data.userId ? { ...p, connected: true } : p
+          ),
+        };
+      });
+      addMatchEvent(`${data.username} подключился к серверу`);
+    };
+
+    const handlePlayerDisconnected = (data: any) => {
+      setLobby((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          players: prev.players.map((p) =>
+            p.id === data.userId ? { ...p, connected: false } : p
+          ),
+        };
+      });
+      addMatchEvent(`${data.username} отключился от сервера`);
+    };
+
     on('lobby_player_joined', handlePlayerJoined);
     on('lobby_player_left', handlePlayerLeft);
     on('lobby_started', handleLobbyStarted);
     on('lobby_cancelled', handleLobbyCancelled);
     on('lobby_player_switched', handlePlayerSwitched);
+    // Match events
+    on('match_score_update', handleMatchScoreUpdate);
+    on('round_end', handleRoundEnd);
+    on('knife_round_start', handleKnifeRoundStart);
+    on('knife_round_won', handleKnifeRoundWon);
+    on('match_going_live', handleMatchGoingLive);
+    on('match_finished', handleMatchFinished);
+    on('player_connected', handlePlayerConnected);
+    on('player_disconnected', handlePlayerDisconnected);
 
     return () => {
       off('lobby_player_joined');
@@ -135,8 +230,21 @@ export default function LobbyPage() {
       off('lobby_started');
       off('lobby_cancelled');
       off('lobby_player_switched');
+      off('match_score_update');
+      off('round_end');
+      off('knife_round_start');
+      off('knife_round_won');
+      off('match_going_live');
+      off('match_finished');
+      off('player_connected');
+      off('player_disconnected');
     };
   }, [on, off, router]);
+
+  // Helper to add match events (keep last 10)
+  const addMatchEvent = (event: string) => {
+    setMatchEvents((prev) => [...prev.slice(-9), event]);
+  };
 
   // Countdown timer
   useEffect(() => {
@@ -478,7 +586,7 @@ export default function LobbyPage() {
             </div>
             <div className="p-4 space-y-3">
               {team1Players.map((player) => (
-                <PlayerCard key={player.id} player={player} isHost={player.id === lobby.hostId} />
+                <PlayerCard key={player.id} player={player} isHost={player.id === lobby.hostId} showConnectionStatus={!!lobby.connectCommand} />
               ))}
               {[...Array(5 - team1Players.length)].map((_, i) => (
                 <EmptySlot
@@ -508,7 +616,7 @@ export default function LobbyPage() {
             </div>
             <div className="p-4 space-y-3">
               {team2Players.map((player) => (
-                <PlayerCard key={player.id} player={player} isHost={player.id === lobby.hostId} />
+                <PlayerCard key={player.id} player={player} isHost={player.id === lobby.hostId} showConnectionStatus={!!lobby.connectCommand} />
               ))}
               {[...Array(5 - team2Players.length)].map((_, i) => (
                 <EmptySlot
@@ -524,17 +632,49 @@ export default function LobbyPage() {
           </div>
         </div>
 
+        {/* Live Score Panel - показывается когда матч идёт */}
+        {lobby.connectCommand && (matchLive.phase !== 'waiting' || matchLive.team1Score > 0 || matchLive.team2Score > 0) && (
+          <div className="glass-panel rounded-xl p-6 mb-6">
+            <div className="flex flex-col items-center">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="material-symbols-outlined text-red-500 animate-pulse">fiber_manual_record</span>
+                <span className="text-sm font-bold text-red-500 uppercase">
+                  {matchLive.phase === 'knife' ? 'Knife Round' :
+                   matchLive.phase === 'live' ? 'Live' :
+                   matchLive.phase === 'halftime' ? 'Halftime' :
+                   matchLive.phase === 'overtime' ? 'Overtime' :
+                   matchLive.phase === 'finished' ? 'Завершён' : 'В процессе'}
+                </span>
+                {matchLive.roundNumber > 0 && (
+                  <span className="text-xs text-gray-500 ml-2">Раунд {matchLive.roundNumber}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-8">
+                <div className="text-center">
+                  <div className="text-6xl font-black text-blue-400 tabular-nums">{matchLive.team1Score}</div>
+                  <div className="text-sm text-gray-400 mt-1">Counter-Terrorists</div>
+                </div>
+                <div className="text-3xl font-bold text-gray-600">:</div>
+                <div className="text-center">
+                  <div className="text-6xl font-black text-yellow-400 tabular-nums">{matchLive.team2Score}</div>
+                  <div className="text-sm text-gray-400 mt-1">Terrorists</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Connect Command */}
         {lobby.connectCommand && (
-          <div className="glass-panel rounded-xl p-6">
+          <div className="glass-panel rounded-xl p-6 mb-6">
             <div className="flex flex-col md:flex-row items-center gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
                   <span className="material-symbols-outlined text-2xl text-green-500">play_arrow</span>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-400">Connect to Server</p>
-                  <p className="text-xs text-gray-500">Open CS2 console and paste command</p>
+                  <p className="text-sm text-gray-400">Подключиться к серверу</p>
+                  <p className="text-xs text-gray-500">Откройте консоль CS2 и вставьте команду</p>
                 </div>
               </div>
               <div className="flex-1 flex items-center gap-2 w-full md:w-auto">
@@ -553,12 +693,31 @@ export default function LobbyPage() {
             </div>
           </div>
         )}
+
+        {/* Match Events Log */}
+        {matchEvents.length > 0 && (
+          <div className="glass-panel rounded-xl p-4">
+            <h3 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2">
+              <span className="material-symbols-outlined text-base">history</span>
+              События матча
+            </h3>
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {matchEvents.map((event, i) => (
+                <div key={i} className="text-sm text-gray-500 py-1 border-b border-white/5 last:border-0">
+                  {event}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function PlayerCard({ player, isHost }: { player: LobbyPlayer; isHost: boolean }) {
+function PlayerCard({ player, isHost, showConnectionStatus }: { player: LobbyPlayer; isHost: boolean; showConnectionStatus?: boolean }) {
+  const isConnected = player.connected !== false; // default to true if not set
+
   return (
     <div className={`flex items-center gap-4 bg-background-dark p-3 rounded-lg ${isHost ? 'border-l-4 border-primary' : ''}`}>
       <div className="relative shrink-0">
@@ -569,13 +728,24 @@ function PlayerCard({ player, isHost }: { player: LobbyPlayer; isHost: boolean }
             <span className="material-symbols-outlined text-gray-500">person</span>
           </div>
         )}
-        <div className="absolute -bottom-1 -right-1 size-3 bg-green-500 rounded-full border-2 border-background-dark" />
+        <div className={`absolute -bottom-1 -right-1 size-3 rounded-full border-2 border-background-dark ${
+          showConnectionStatus
+            ? (isConnected ? 'bg-green-500' : 'bg-gray-500')
+            : 'bg-green-500'
+        }`} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-white font-bold truncate">{player.username}</p>
+          <p className={`font-bold truncate ${showConnectionStatus && !isConnected ? 'text-gray-500' : 'text-white'}`}>
+            {player.username}
+          </p>
           {isHost && (
             <span className="material-symbols-outlined text-yellow-500 text-base">crown</span>
+          )}
+          {showConnectionStatus && (
+            <span className={`text-xs ${isConnected ? 'text-green-500' : 'text-gray-500'}`}>
+              {isConnected ? 'В игре' : 'Офлайн'}
+            </span>
           )}
         </div>
         <p className="text-xs text-gray-400">{player.mmr} MMR</p>

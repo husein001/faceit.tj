@@ -7,6 +7,7 @@ import {
   getUserMatchHistory,
 } from '../models/match.model';
 import { generateGet5Config } from '../services/get5.service';
+import { generateMatchZyConfig } from '../services/matchzy.service';
 import { getUsersByIds } from '../models/user.model';
 import { MapName } from '../types';
 
@@ -51,8 +52,46 @@ router.get('/:id', optionalAuthMiddleware, async (req: AuthRequest, res: Respons
   }
 });
 
-// Get5 config endpoint (called by CS2 server)
+// MatchZy config endpoint (called by CS2 server) - DEFAULT
 router.get('/:id/config', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const plugin = (req.query.plugin as string) || 'matchzy';
+
+    const data = await getMatchWithPlayers(id);
+
+    if (!data) {
+      res.status(404).json({ error: 'Match not found' });
+      return;
+    }
+
+    const { match, players } = data;
+
+    // Get user details
+    const userIds = players.map(p => p.user_id);
+    const users = await getUsersByIds(userIds);
+
+    // Split users by team
+    const team1Users = users.filter(u => players.find(p => p.user_id === u.id && p.team === 1));
+    const team2Users = users.filter(u => players.find(p => p.user_id === u.id && p.team === 2));
+
+    let config;
+    if (plugin === 'get5') {
+      config = generateGet5Config(match.id, team1Users, team2Users, match.map as MapName);
+    } else {
+      // Default to MatchZy
+      config = generateMatchZyConfig(match.id, team1Users, team2Users, match.map as MapName);
+    }
+
+    res.json(config);
+  } catch (error) {
+    console.error('Error getting match config:', error);
+    res.status(500).json({ error: 'Failed to get match config' });
+  }
+});
+
+// Explicit MatchZy config endpoint
+router.get('/:id/matchzy-config', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const data = await getMatchWithPlayers(id);
@@ -72,11 +111,11 @@ router.get('/:id/config', async (req: Request, res: Response) => {
     const team1Users = users.filter(u => players.find(p => p.user_id === u.id && p.team === 1));
     const team2Users = users.filter(u => players.find(p => p.user_id === u.id && p.team === 2));
 
-    const config = generateGet5Config(match.id, team1Users, team2Users, match.map as MapName);
+    const config = generateMatchZyConfig(match.id, team1Users, team2Users, match.map as MapName);
 
     res.json(config);
   } catch (error) {
-    console.error('Error getting match config:', error);
+    console.error('Error getting MatchZy config:', error);
     res.status(500).json({ error: 'Failed to get match config' });
   }
 });

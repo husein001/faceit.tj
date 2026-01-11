@@ -432,14 +432,26 @@ router.post('/:code/start', authMiddleware, async (req: AuthRequest, res: Respon
 
     const connectCommand = `connect ${server.ip}:${server.port}; password ${serverPassword}`;
 
-    // Get5 конфиг (опционально, асинхронно)
+    // MatchZy конфиг (опционально, асинхронно)
     (async () => {
       try {
         const configUrl = `${process.env.API_URL}/api/matches/${match.id}/config`;
-        await loadGet5Match(server.id, configUrl);
-        console.log('Get5 config loaded');
+        // Загрузить MatchZy конфиг
+        const loadResult = await gameServerManager.loadMatchZyMatch(server.id, configUrl);
+        if (loadResult.success) {
+          console.log('MatchZy config loaded successfully');
+        } else {
+          console.log('MatchZy load result:', loadResult.error || 'no response');
+          // Fallback to Get5 if MatchZy not available
+          try {
+            await loadGet5Match(server.id, configUrl + '?plugin=get5');
+            console.log('Fallback to Get5 config loaded');
+          } catch (e2) {
+            console.error('Get5 fallback also failed:', e2);
+          }
+        }
       } catch (e) {
-        console.error('Get5 load failed (non-critical):', e);
+        console.error('MatchZy load failed (non-critical):', e);
       }
     })();
 
