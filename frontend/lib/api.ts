@@ -50,8 +50,10 @@ export const lobbyApi = {
   create: (token: string, map: string) =>
     request<any>('/api/lobby/create', { method: 'POST', token, body: { map } }),
   get: (code: string) => request<any>(`/api/lobby/${code}`),
-  join: (token: string, code: string) =>
-    request<any>(`/api/lobby/${code}/join`, { method: 'POST', token }),
+  join: (token: string, code: string, team: 1 | 2) =>
+    request<any>(`/api/lobby/${code}/join`, { method: 'POST', token, body: { team } }),
+  switchTeam: (token: string, code: string, team: 1 | 2) =>
+    request<any>(`/api/lobby/${code}/switch-team`, { method: 'POST', token, body: { team } }),
   leave: (token: string, code: string) =>
     request<any>(`/api/lobby/${code}/leave`, { method: 'POST', token }),
   start: (token: string, code: string) =>

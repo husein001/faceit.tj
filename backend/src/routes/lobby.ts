@@ -159,11 +159,12 @@ router.get('/:code', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Join lobby
+// Join lobby (with team selection)
 router.post('/:code/join', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.userId;
     const { code } = req.params;
+    const { team: requestedTeam } = req.body; // 1 or 2
 
     const match = await findMatchByLobbyCode(code.toUpperCase());
 
@@ -177,23 +178,23 @@ router.post('/:code/join', authMiddleware, async (req: AuthRequest, res: Respons
       return;
     }
 
-    // Check if already in lobby
     const players = await getMatchPlayers(match.id);
+
+    // Check if already in lobby
     if (players.some(p => p.user_id === userId)) {
       res.status(400).json({ error: 'Already in this lobby' });
       return;
     }
 
-    // Check if lobby is full (10 players max)
-    if (players.length >= 10) {
-      res.status(400).json({ error: 'Lobby is full' });
+    // Validate requested team
+    const team = (requestedTeam === 1 || requestedTeam === 2) ? requestedTeam : 1;
+
+    // Check if team is full (5 players max per team)
+    const teamCount = players.filter(p => p.team === team).length;
+    if (teamCount >= 5) {
+      res.status(400).json({ error: `Команда ${team === 1 ? 'CT' : 'T'} заполнена` });
       return;
     }
-
-    // Balance teams - add to team with fewer players
-    const team1Count = players.filter(p => p.team === 1).length;
-    const team2Count = players.filter(p => p.team === 2).length;
-    const team = team1Count <= team2Count ? 1 : 2;
 
     await addMatchPlayer(match.id, userId, team as 1 | 2);
 
@@ -224,6 +225,72 @@ router.post('/:code/join', authMiddleware, async (req: AuthRequest, res: Respons
   } catch (error: any) {
     console.error('Error joining lobby:', error);
     res.status(500).json({ error: error.message || 'Failed to join lobby' });
+  }
+});
+
+// Switch team
+router.post('/:code/switch-team', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { code } = req.params;
+    const { team: newTeam } = req.body; // 1 or 2
+
+    if (newTeam !== 1 && newTeam !== 2) {
+      res.status(400).json({ error: 'Invalid team' });
+      return;
+    }
+
+    const match = await findMatchByLobbyCode(code.toUpperCase());
+
+    if (!match) {
+      res.status(404).json({ error: 'Lobby not found' });
+      return;
+    }
+
+    if (match.status !== 'waiting') {
+      res.status(400).json({ error: 'Cannot switch teams after match started' });
+      return;
+    }
+
+    const players = await getMatchPlayers(match.id);
+    const currentPlayer = players.find(p => p.user_id === userId);
+
+    if (!currentPlayer) {
+      res.status(400).json({ error: 'You are not in this lobby' });
+      return;
+    }
+
+    if (currentPlayer.team === newTeam) {
+      res.status(400).json({ error: 'Already in this team' });
+      return;
+    }
+
+    // Check if new team is full
+    const newTeamCount = players.filter(p => p.team === newTeam).length;
+    if (newTeamCount >= 5) {
+      res.status(400).json({ error: `Команда ${newTeam === 1 ? 'CT' : 'T'} заполнена` });
+      return;
+    }
+
+    // Update player's team
+    const { updatePlayerTeam } = await import('../models/match.model');
+    await updatePlayerTeam(match.id, userId, newTeam as 1 | 2);
+
+    // Notify all players
+    const user = await findUserById(userId);
+    io.to(`lobby:${match.id}`).emit('lobby_player_switched', {
+      userId,
+      username: user?.username,
+      avatarUrl: user?.avatar_url,
+      mmr: user?.mmr,
+      oldTeam: currentPlayer.team,
+      newTeam,
+    });
+
+    res.json({ success: true, team: newTeam });
+  } catch (error: any) {
+    console.error('Error switching team:', error);
+    res.status(500).json({ error: error.message || 'Failed to switch team' });
   }
 });
 

@@ -185,6 +185,13 @@ export async function removePlayerFromMatch(matchId: string, userId: string): Pr
   );
 }
 
+export async function updatePlayerTeam(matchId: string, userId: string, team: 1 | 2): Promise<void> {
+  await query(
+    'UPDATE match_players SET team = $3 WHERE match_id = $1 AND user_id = $2',
+    [matchId, userId, team]
+  );
+}
+
 export function generateLobbyCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';

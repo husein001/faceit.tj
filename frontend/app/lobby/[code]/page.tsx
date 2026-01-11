@@ -111,16 +111,30 @@ export default function LobbyPage() {
       setTimeout(() => router.push('/play'), 3000);
     };
 
+    const handlePlayerSwitched = (data: any) => {
+      setLobby((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          players: prev.players.map((p) =>
+            p.id === data.userId ? { ...p, team: data.newTeam } : p
+          ),
+        };
+      });
+    };
+
     on('lobby_player_joined', handlePlayerJoined);
     on('lobby_player_left', handlePlayerLeft);
     on('lobby_started', handleLobbyStarted);
     on('lobby_cancelled', handleLobbyCancelled);
+    on('lobby_player_switched', handlePlayerSwitched);
 
     return () => {
       off('lobby_player_joined');
       off('lobby_player_left');
       off('lobby_started');
       off('lobby_cancelled');
+      off('lobby_player_switched');
     };
   }, [on, off, router]);
 
@@ -134,13 +148,25 @@ export default function LobbyPage() {
     }
   }, [timeRemaining]);
 
-  const handleJoin = async () => {
+  const handleJoinTeam = async (team: 1 | 2) => {
     if (!token) return;
+    setError(null);
     try {
-      await lobbyApi.join(token, code);
+      await lobbyApi.join(token, code, team);
       // Refresh lobby data
       const data = await lobbyApi.get(code);
       setLobby(data);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleSwitchTeam = async (newTeam: 1 | 2) => {
+    if (!token) return;
+    setError(null);
+    try {
+      await lobbyApi.switchTeam(token, code, newTeam);
+      // Update will come via socket
     } catch (err: any) {
       setError(err.message);
     }
@@ -352,14 +378,6 @@ export default function LobbyPage() {
 
             {/* Actions */}
             <div className="flex gap-3">
-              {!isInLobby && isAuthenticated && (
-                <button
-                  onClick={handleJoin}
-                  className="px-6 py-3 bg-primary text-background-dark font-bold rounded-lg hover:shadow-neon transition-all"
-                >
-                  Join Lobby
-                </button>
-              )}
               {isInLobby && !isHost && (
                 <button
                   onClick={handleLeave}
@@ -410,7 +428,7 @@ export default function LobbyPage() {
 
         {/* Teams */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Team 1 */}
+          {/* Team 1 - Counter-Terrorists */}
           <div className="glass-panel rounded-xl overflow-hidden">
             <div className="p-4 border-b border-white/5 bg-gradient-to-r from-blue-900/20 to-transparent flex justify-between items-center">
               <div className="flex items-center gap-3">
@@ -428,12 +446,19 @@ export default function LobbyPage() {
                 <PlayerCard key={player.id} player={player} isHost={player.id === lobby.hostId} />
               ))}
               {[...Array(5 - team1Players.length)].map((_, i) => (
-                <EmptySlot key={`empty1-${i}`} />
+                <EmptySlot
+                  key={`empty1-${i}`}
+                  team={1}
+                  canJoin={isAuthenticated && !isInLobby && lobby.status === 'waiting'}
+                  canSwitch={isInLobby && lobby.players.find(p => p.id === user?.id)?.team === 2 && lobby.status === 'waiting'}
+                  onJoin={() => handleJoinTeam(1)}
+                  onSwitch={() => handleSwitchTeam(1)}
+                />
               ))}
             </div>
           </div>
 
-          {/* Team 2 */}
+          {/* Team 2 - Terrorists */}
           <div className="glass-panel rounded-xl overflow-hidden">
             <div className="p-4 border-b border-white/5 bg-gradient-to-r from-yellow-900/20 to-transparent flex justify-between items-center">
               <div className="flex items-center gap-3">
@@ -451,7 +476,14 @@ export default function LobbyPage() {
                 <PlayerCard key={player.id} player={player} isHost={player.id === lobby.hostId} />
               ))}
               {[...Array(5 - team2Players.length)].map((_, i) => (
-                <EmptySlot key={`empty2-${i}`} />
+                <EmptySlot
+                  key={`empty2-${i}`}
+                  team={2}
+                  canJoin={isAuthenticated && !isInLobby && lobby.status === 'waiting'}
+                  canSwitch={isInLobby && lobby.players.find(p => p.id === user?.id)?.team === 1 && lobby.status === 'waiting'}
+                  onJoin={() => handleJoinTeam(2)}
+                  onSwitch={() => handleSwitchTeam(2)}
+                />
               ))}
             </div>
           </div>
@@ -517,11 +549,46 @@ function PlayerCard({ player, isHost }: { player: LobbyPlayer; isHost: boolean }
   );
 }
 
-function EmptySlot() {
+function EmptySlot({
+  team,
+  canJoin,
+  canSwitch,
+  onJoin,
+  onSwitch,
+}: {
+  team: 1 | 2;
+  canJoin: boolean;
+  canSwitch: boolean;
+  onJoin: () => void;
+  onSwitch: () => void;
+}) {
+  const isClickable = canJoin || canSwitch;
+  const teamColor = team === 1 ? 'blue' : 'yellow';
+
+  if (!isClickable) {
+    return (
+      <div className="flex items-center justify-center gap-3 h-[72px] rounded-lg border border-dashed border-white/10 bg-white/5 text-gray-500">
+        <span className="material-symbols-outlined text-sm animate-pulse">hourglass_empty</span>
+        <span className="font-medium text-sm">Ожидание игрока...</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center justify-center gap-3 h-[72px] rounded-lg border border-dashed border-white/10 bg-white/5 text-gray-500">
-      <span className="material-symbols-outlined text-sm animate-pulse">hourglass_empty</span>
-      <span className="font-medium text-sm">Waiting for player...</span>
-    </div>
+    <button
+      onClick={canJoin ? onJoin : onSwitch}
+      className={`w-full flex items-center justify-center gap-3 h-[72px] rounded-lg border-2 border-dashed transition-all cursor-pointer ${
+        team === 1
+          ? 'border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/20 hover:border-blue-500/60 text-blue-400'
+          : 'border-yellow-500/40 bg-yellow-500/10 hover:bg-yellow-500/20 hover:border-yellow-500/60 text-yellow-400'
+      }`}
+    >
+      <span className="material-symbols-outlined text-lg">
+        {canJoin ? 'person_add' : 'swap_horiz'}
+      </span>
+      <span className="font-medium text-sm">
+        {canJoin ? 'Присоединиться' : 'Перейти сюда'}
+      </span>
+    </button>
   );
 }
