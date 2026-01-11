@@ -308,6 +308,7 @@ export default function LobbyPage() {
   const team1Players = lobby.players.filter((p) => p.team === 1);
   const team2Players = lobby.players.filter((p) => p.team === 2);
   const isInLobby = lobby.players.some((p) => p.id === user?.id);
+  const isExpired = timeRemaining <= 0 && lobby.status === 'waiting' && !lobby.connectCommand;
 
   // Map images mapping
   const getMapImage = (mapName: string): string => {
@@ -331,6 +332,31 @@ export default function LobbyPage() {
         {error && (
           <div className="bg-danger/20 border border-danger/30 rounded-lg p-4 mb-6">
             <p className="text-danger">{error}</p>
+          </div>
+        )}
+
+        {/* Expired Banner */}
+        {isExpired && (
+          <div className="glass-panel rounded-2xl p-8 mb-6 text-center border border-danger/30">
+            <span className="material-symbols-outlined text-6xl text-danger mb-4">timer_off</span>
+            <h2 className="text-2xl font-bold text-white mb-2">Время истекло</h2>
+            <p className="text-gray-400 mb-6">
+              Время для сбора игроков истекло. Лобби будет автоматически закрыто.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <a
+                href="/lobby/create"
+                className="px-6 py-3 bg-primary text-background-dark font-bold rounded-lg hover:shadow-neon transition-all"
+              >
+                Создать новое лобби
+              </a>
+              <a
+                href="/play"
+                className="px-6 py-3 bg-background-dark text-white border border-white/20 font-bold rounded-lg hover:bg-white/10 transition-all"
+              >
+                Найти игру
+              </a>
+            </div>
           </div>
         )}
 
@@ -387,15 +413,15 @@ export default function LobbyPage() {
 
             {/* Actions */}
             <div className="flex gap-3">
-              {isInLobby && !isHost && (
+              {isInLobby && !isHost && !isExpired && (
                 <button
                   onClick={handleLeave}
                   className="px-4 py-2 bg-background-dark text-danger border border-danger/30 hover:bg-danger/10 rounded-lg font-bold text-sm"
                 >
-                  Leave
+                  Покинуть
                 </button>
               )}
-              {isHost && lobby.status === 'waiting' && !lobby.connectCommand && (
+              {isHost && lobby.status === 'waiting' && !lobby.connectCommand && !isExpired && (
                 <button
                   onClick={handleStart}
                   disabled={lobby.players.length < 2 || isStarting}
@@ -423,12 +449,12 @@ export default function LobbyPage() {
                   )}
                 </button>
               )}
-              {isHost && (
+              {isHost && !isExpired && (
                 <button
                   onClick={handleCancel}
                   className="px-4 py-2 bg-background-dark text-danger border border-danger/30 hover:bg-danger/10 rounded-lg font-bold text-sm"
                 >
-                  Cancel
+                  Отменить
                 </button>
               )}
             </div>
@@ -458,8 +484,8 @@ export default function LobbyPage() {
                 <EmptySlot
                   key={`empty1-${i}`}
                   team={1}
-                  canJoin={isAuthenticated && !isInLobby && lobby.status === 'waiting'}
-                  canSwitch={isInLobby && lobby.players.find(p => p.id === user?.id)?.team === 2 && lobby.status === 'waiting'}
+                  canJoin={isAuthenticated && !isInLobby && lobby.status === 'waiting' && !isExpired}
+                  canSwitch={isInLobby && lobby.players.find(p => p.id === user?.id)?.team === 2 && lobby.status === 'waiting' && !isExpired}
                   onJoin={() => handleJoinTeam(1)}
                   onSwitch={() => handleSwitchTeam(1)}
                 />
@@ -488,8 +514,8 @@ export default function LobbyPage() {
                 <EmptySlot
                   key={`empty2-${i}`}
                   team={2}
-                  canJoin={isAuthenticated && !isInLobby && lobby.status === 'waiting'}
-                  canSwitch={isInLobby && lobby.players.find(p => p.id === user?.id)?.team === 1 && lobby.status === 'waiting'}
+                  canJoin={isAuthenticated && !isInLobby && lobby.status === 'waiting' && !isExpired}
+                  canSwitch={isInLobby && lobby.players.find(p => p.id === user?.id)?.team === 1 && lobby.status === 'waiting' && !isExpired}
                   onJoin={() => handleJoinTeam(2)}
                   onSwitch={() => handleSwitchTeam(2)}
                 />
