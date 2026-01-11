@@ -162,11 +162,20 @@ export default function LobbyPage() {
   };
 
   const handleSwitchTeam = async (newTeam: 1 | 2) => {
-    if (!token) return;
+    if (!token || !user) return;
     setError(null);
     try {
       await lobbyApi.switchTeam(token, code, newTeam);
-      // Update will come via socket
+      // Update local state immediately (socket event may also arrive)
+      setLobby((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          players: prev.players.map((p) =>
+            p.id === user.id ? { ...p, team: newTeam } : p
+          ),
+        };
+      });
     } catch (err: any) {
       setError(err.message);
     }
